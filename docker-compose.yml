@@ -1,31 +1,50 @@
 services:
   communication:
-    build: ./deployer
+    build: ./integration
     container_name: communication
     ports:
       - "5001:5001"
     volumes:
-      - ./bpmn:/bpmn
+      - ./pais/camunda/bpmn:/bpmn:ro
+    environment:
+      ZEEBE_ADDRESS: zeebe:26500
+      BPMN_FILE: /bpmn/food_order.bpmn
+      SIDDHI_CALLBACK_URL: http://siddhi:7072/middleman
     depends_on:
       - zeebe
       - siddhi
+
   siddhi:
-    build: ./siddhi
+    build: ./cep
     container_name: siddhi-runtime
     ports:
       - "7071:7071"
       - "7072:7072"
       - "7073:7073"
-      - "9390:9390"   # optional dashboard
+      - "9390:9390"
+    depends_on:
+      - logging-service
+
+  microservice:
+    build: ./pais/dcr/microservice
+    container_name: microservice
+    ports:
+      - "5002:5001"
+    env_file:
+      - ./pais/dcr/microservice/.env
+    environment:
+      SIDDHI_CALLBACK_URL: http://siddhi:7072/middleman
+    depends_on:
+      - siddhi
 
   logging-service:
-    build: ./logging_service
+    build: ./logging/service
     container_name: logging-service
     ports:
       - "5010:5010"
     volumes:
-      - ./logging_service/logs:/logs
-      - ./logging_service/XES:/XES
+      - ./logging/service/logs:/logs
+      - ./logging/service/XES:/XES
 
   zeebe:
     image: camunda/zeebe:8.8.0
@@ -39,7 +58,8 @@ services:
       ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_CLASSNAME: io.camunda.zeebe.exporter.ElasticsearchExporter
       ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_URL: http://elasticsearch:9200
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
@@ -62,13 +82,12 @@ services:
     container_name: operate
     ports:
       - "8081:8080"
+    environment:
+      CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS: zeebe:26500
+      CAMUNDA_OPERATE_ELASTICSEARCH_URL: http://elasticsearch:9200
+      CAMUNDA_DATA_SECONDARY_STORAGE_ELASTICSEARCH_URL: http://elasticsearch:9200
     depends_on:
       zeebe:
         condition: service_started
       elasticsearch:
         condition: service_healthy
-    environment:
-      CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS: zeebe:26500
-      CAMUNDA_OPERATE_ELASTICSEARCH_URL: http://elasticsearch:9200
-      CAMUNDA_DATA_SECONDARY_STORAGE_ELASTICSEARCH_URL: http://elasticsearch:9200
-

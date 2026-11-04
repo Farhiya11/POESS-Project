@@ -1,5 +1,0 @@
-{"order_id":"order-001","action":"PlaceOrder"}
-{"order_id":"order-001","action":"ReceiveOrder"}
-{"order_id":"order-001","action":"PayOrder"}
-{"order_id":"order-002","action":"PlaceOrder"}
-{"order_id":"order-002","action":"CancelOrder"}
