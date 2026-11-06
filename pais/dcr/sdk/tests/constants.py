@@ -3,6 +3,9 @@ from pathlib import Path
 # Graph
 GRAPH_ID = 4013
 
+# Simulation
+SIMULATION_ID = 2108170
+
 # Credentials
 USERNAME = "test-user"
 PASSWORD = "test-password"
@@ -21,7 +24,7 @@ INIT_HEADERS = {
     "server": "Microsoft-IIS/10.0",
     "www-authenticate": "Basic",
     "simulationid": "2108170",  # For some reason this is the response
-    "x-dcr-simulation-id": "2108170",
+    "X-Dcr-Simulation-Id": "2108170",
     "last-modifieddate": "2026-05-21 09:09:47.867",
     "x-dcr-graph-modifiedtime": "2026-05-21 09:09:47.867",
     "x-powered-by": "ASP.NET",
