@@ -4,8 +4,8 @@ import json
 
 import requests
 
-from dcr_sdk.account import Account
-from dcr_sdk.constants import (
+from dcr_sdk.core.account import Account
+from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from dcr_sdk.models import Graph, Sim
+from dcr_sdk.models.models import Graph, Sim
 
 
 def parse_graphs(xml: str) -> list[Graph]:
