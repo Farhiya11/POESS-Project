@@ -3,6 +3,8 @@ from __future__ import annotations
 import requests
 
 from dcr_sdk.constants import ACCOUNT_GRAPHS_URL, DEFAULT_HEADERS
+from dcr_sdk.models import Graph
+from dcr_sdk.parser import parse_graphs
 
 
 class Account:
@@ -18,11 +20,13 @@ class Account:
         self.auth = (username, password)
         self.headers = headers
 
-    def _get_graphs(self) -> requests.Response:
+    # Private Raw Reponse Method
+    def _request_graphs(self) -> requests.Response:
         url = ACCOUNT_GRAPHS_URL
         response = requests.request("GET", url, headers=self.headers, auth=self.auth)
         response.raise_for_status()
         return response
 
-    def show_graphs(self) -> str:
-        return self._get_graphs().text
+    # SDK object transformed for usage
+    def get_graphs(self) -> list[Graph]:
+        return parse_graphs(self._request_graphs().text)

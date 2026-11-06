@@ -1,3 +1,5 @@
+from pathlib import Path
+
 # Graph
 GRAPH_ID = 4013
 
@@ -26,8 +28,7 @@ INIT_HEADERS = {
     "date": "Fri, 06 Nov 2026 12:55:53 GMT",
 }
 
-# Account Graphs Response Body
-GRAPHS_XML = (
-    '<graphs><graph Id="2016035" Title="DCR_Test" Description="DCR Process" />'
-    '<graph Id="2016043" Title="Payout" Description="DCR Process" /></graphs>'
-)
+# Sanity Folder Mock Data
+ACCOUNT_GRAPH_BODY = (
+    Path(__file__).parent / "mock_data" / "account_graph_body.xml"
+).read_text()
