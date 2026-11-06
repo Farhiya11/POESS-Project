@@ -1,3 +1,5 @@
+from pathlib import Path
+
 # Graph
 GRAPH_ID = 4013
 
@@ -25,3 +27,8 @@ INIT_HEADERS = {
     "x-powered-by": "ASP.NET",
     "date": "Fri, 06 Nov 2026 12:55:53 GMT",
 }
+
+# Sanity Folder Mock Data
+ACCOUNT_GRAPH_BODY = (
+    Path(__file__).parent / "mock_data" / "account_graph_body.xml"
+).read_text()
