@@ -1,6 +1,7 @@
 # Uniform Resource Locators
-ACCOUNT_GRAPHS_URL: str = "https://repository.dcrgraphs.net/api/graphs"
-INITIALIZE_SIMULATION_URL: str = "https://repository.dcrgraphs.net/api/graphs/{}/sims"
+HOST: str = "https://repository.dcrgraphs.net"
+ACCOUNT_GRAPHS_URL: str = f"{HOST}/api/graphs"
+INITIALIZE_SIMULATION_URL: str = f"{HOST}/api/graphs/{{}}/sims"
 
 
 # Protocol Variables
