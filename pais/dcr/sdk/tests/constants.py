@@ -25,15 +25,3 @@ INIT_HEADERS = {
     "x-powered-by": "ASP.NET",
     "date": "Fri, 06 Nov 2026 12:55:53 GMT",
 }
-
-# Simulation / event payloads
-SIMULATION_ID = "2108170"
-EVENT_ID = "PlaceOrder"
-SIMS_XML = '<log><trace id="2108169" /><trace id="2108170" /></log>'
-EVENTS_XML = (
-    '<events>'
-    '<event id="PlaceOrder" enabled="true" />'
-    '<event id="PayOrder" enabled="false" />'
-    '<event id="CancelOrder" enabled="true" />'
-    '</events>'
-)
