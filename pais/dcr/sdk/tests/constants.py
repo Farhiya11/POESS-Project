@@ -25,3 +25,9 @@ INIT_HEADERS = {
     "x-powered-by": "ASP.NET",
     "date": "Fri, 06 Nov 2026 12:55:53 GMT",
 }
+
+# Account Graphs Response Body
+GRAPHS_XML = (
+    '<graphs><graph Id="2016035" Title="DCR_Test" Description="DCR Process" />'
+    '<graph Id="2016043" Title="Payout" Description="DCR Process" /></graphs>'
+)

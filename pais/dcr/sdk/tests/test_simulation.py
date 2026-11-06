@@ -3,7 +3,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from dcr_sdk.dcr import DCR, INITIALIZE_SIMULATION_URL
+from dcr_sdk.account import Account
+from dcr_sdk.constants import INITIALIZE_SIMULATION_URL
+from dcr_sdk.simulation import Simulation
 
 from .constants import (
     CALL_TITLE,
@@ -16,7 +18,7 @@ from .constants import (
 )
 
 
-@patch("dcr_sdk.dcr.requests.request")
+@patch("dcr_sdk.simulation.requests.request")
 def test_init_simulation_success(mock_post: MagicMock):
 
     mock_post.return_value = MagicMock(
@@ -25,7 +27,7 @@ def test_init_simulation_success(mock_post: MagicMock):
         raise_for_status=lambda: None,
     )
 
-    result = DCR(GRAPH_ID, USERNAME, PASSWORD).init_simulation(TITLE)
+    result = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD)).init_simulation(TITLE)
 
     assert result.headers == INIT_HEADERS
 
@@ -39,7 +41,7 @@ def test_init_simulation_success(mock_post: MagicMock):
     )
 
 
-@patch("dcr_sdk.dcr.requests.request")
+@patch("dcr_sdk.simulation.requests.request")
 def test_init_simulation_unauthorized(mock_request: MagicMock):
     resp = requests.Response()
     resp.status_code = 401
@@ -49,10 +51,11 @@ def test_init_simulation_unauthorized(mock_request: MagicMock):
     mock_request.return_value = resp
 
     with pytest.raises(requests.HTTPError) as exc_info:
-        _ = DCR(GRAPH_ID, USERNAME, INCORRECT_PASSWORD).init_simulation(
-            "Python Simulation"
-        )
+        _ = Simulation(
+            GRAPH_ID, Account(USERNAME, INCORRECT_PASSWORD)
+        ).init_simulation(TITLE)
 
     response = exc_info.value.response
     assert response is not None
     assert response.status_code == 401
+
