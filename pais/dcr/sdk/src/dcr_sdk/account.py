@@ -8,8 +8,7 @@ from dcr_sdk.parser import parse_graphs
 
 
 class Account:
-    auth: tuple[str, str]
-    headers: dict[str, str]
+    session: requests.Session
 
     def __init__(
         self,
@@ -17,13 +16,13 @@ class Account:
         password: str,
         headers: dict[str, str] = DEFAULT_HEADERS,
     ):
-        self.auth = (username, password)
-        self.headers = headers
+        self.session = requests.Session()
+        self.session.auth = (username, password)
+        self.session.headers.update(headers)
 
     # Private Raw Reponse Method
     def _request_graphs(self) -> requests.Response:
-        url = ACCOUNT_GRAPHS_URL
-        response = requests.request("GET", url, headers=self.headers, auth=self.auth)
+        response = self.session.get(ACCOUNT_GRAPHS_URL)
         response.raise_for_status()
         return response
 

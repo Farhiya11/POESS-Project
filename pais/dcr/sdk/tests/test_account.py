@@ -1,12 +1,14 @@
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from dcr_sdk.account import Account
 from dcr_sdk.models import Graph
 
 from .constants import ACCOUNT_GRAPH_BODY, PASSWORD, USERNAME
 
 
-@patch("dcr_sdk.account.requests.request")
+@patch.object(requests.Session, "request")
 def test_get_graphs(mock_request: MagicMock):
     mock_request.return_value = MagicMock(
         text=ACCOUNT_GRAPH_BODY,

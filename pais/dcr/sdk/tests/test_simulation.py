@@ -18,7 +18,7 @@ from .constants import (
 )
 
 
-@patch("dcr_sdk.simulation.requests.request")
+@patch.object(requests.Session, "request")
 def test_init_simulation_success(mock_post: MagicMock):
 
     mock_post.return_value = MagicMock(
@@ -27,21 +27,24 @@ def test_init_simulation_success(mock_post: MagicMock):
         raise_for_status=lambda: None,
     )
 
-    result = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD)).init_simulation(TITLE)
+    account = Account(USERNAME, PASSWORD)
+    result = Simulation(GRAPH_ID, account).init_simulation(TITLE)
 
     assert result.headers == INIT_HEADERS
+
+    # DCR graphs uses basic auth, set once on the account session
+    assert account.session.auth == (USERNAME, PASSWORD)
+    assert account.session.headers["Content-Type"] == "application/json"
 
     mock_post.assert_called_once_with(
         "POST",
         INITIALIZE_SIMULATION_URL.format(GRAPH_ID),
-        headers={"Content-Type": "application/json"},
         data=CALL_TITLE,
-        # DCR graphs uses basic auth
-        auth=(USERNAME, PASSWORD),
+        json=None,
     )
 
 
-@patch("dcr_sdk.simulation.requests.request")
+@patch.object(requests.Session, "request")
 def test_init_simulation_unauthorized(mock_request: MagicMock):
     resp = requests.Response()
     resp.status_code = 401
