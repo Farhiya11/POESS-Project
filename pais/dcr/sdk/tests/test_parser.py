@@ -1,5 +1,5 @@
-from dcr_sdk.models import Graph, Sim
-from dcr_sdk.parser import parse_graphs, parse_sims
+from dcr_sdk.models.models import Graph, Sim
+from dcr_sdk.utils.parser import parse_graphs, parse_sims
 
 from .constants import ACCOUNT_GRAPH_BODY, GRAPH_SIMS_BODY
 
