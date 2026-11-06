@@ -44,6 +44,8 @@ class Simulation:
         response.raise_for_status()
         return response
 
+    # Note: There is no formal GET request to check this
+    # Solution: Get events and raise_for_status in case it doens't find it
     def _verify_sim_id(self, sim_id: int) -> None:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, sim_id)
         response = self.account.session.get(url, params={"filter": "all"})
