@@ -35,3 +35,6 @@ INIT_HEADERS = {
 ACCOUNT_GRAPH_BODY = (
     Path(__file__).parent / "mock_data" / "account_graph_body.xml"
 ).read_text()
+GRAPH_SIMS_BODY = (
+    Path(__file__).parent / "mock_data" / "graph_sims_body.xml"
+).read_text()
