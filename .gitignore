@@ -7,3 +7,9 @@ __pycache__/
 # Runtime logging and generated XES artifacts
 logs/
 XES/
+#Ale uv local development package manager files
+.venv/
+uv.lock
+.python-version
+.pytest_cache/
+.ruff_cache/
