@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcr-sdk"
-dynamic = ["version"]
+version = "0.0.1"
 description = 'DCR Graph SDK for mental stability, thanks'
 requires-python = ">=3.8"
 license = "MIT"
@@ -32,9 +32,6 @@ Documentation = "https://github.com/Farhiya11/POESS-Project#readme"
 Issues = "https://github.com/Farhiya11/POESS-Project/issues"
 Source = "https://github.com/Farhiya11/POESS-Project/tree/main/pais/dcr/sdk"
 
-[tool.hatch.version]
-path = "src/dcr_sdk/__about__.py"
-
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
@@ -46,9 +43,6 @@ check = "mypy --install-types --non-interactive {args:src/dcr_sdk tests}"
 source_pkgs = ["dcr_sdk", "tests"]
 branch = true
 parallel = true
-omit = [
-  "src/dcr_sdk/__about__.py",
-]
 
 [tool.coverage.paths]
 dcr_sdk = ["src/dcr_sdk", "*/dcr-sdk/src/dcr_sdk"]
