@@ -28,19 +28,22 @@ C:.
 │   └───dcr
 │       └───microservice
 │               
-└───scripts
+├───scripts
+└───sources
+    └───api_adapter
 ```
 
 ## Responsibilities
 
 - `cep` runs the Siddhi event-processing application.
+- `sources/api_adapter` provides a template HTTP adapter for submitting orders.
 - `integration` routes events to Camunda or DCR and normalizes callbacks.
 - `pais/bpmn/microservice` contains the Camunda BPMN process.
   - bpmn files should follow the naming convention `P<number>-<name-of-process>.bpmn`.
 - `pais/dcr/microservice` communicates with DCR Graph.
 - `event_logs_service/service` stores JSON and XES process logs.
 
-## Prerequisites
+## Prerequisites    
 
 - Docker Engine or Docker Desktop
 - Docker Compose

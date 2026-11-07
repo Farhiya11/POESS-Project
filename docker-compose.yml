@@ -1,4 +1,14 @@
 services:
+  api_adapter:
+    build: ./sources/api_adapter
+    container_name: api-adapter
+    ports:
+      - "5000:5000"
+    environment:
+      INTEGRATION_URL: http://communication:5001
+    depends_on:
+      - communication
+
   communication:
     build: ./integration
     container_name: communication
