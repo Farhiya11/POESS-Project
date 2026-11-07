@@ -5,7 +5,7 @@ services:
     ports:
       - "5001:5001"
     volumes:
-      - ./pais/camunda/bpmn:/bpmn:ro
+      - ./pais/bpmn/microservice:/bpmn:ro
     environment:
       ZEEBE_ADDRESS: zeebe:26500
       BPMN_FILE: /bpmn/food_order.bpmn
@@ -23,7 +23,7 @@ services:
       - "7073:7073"
       - "9390:9390"
     depends_on:
-      - logging-service
+      - event_logs_service
 
   microservice:
     build: ./pais/dcr/microservice
@@ -37,14 +37,15 @@ services:
     depends_on:
       - siddhi
 
-  logging-service:
-    build: ./logging/service
-    container_name: logging-service
+
+  event_logs_service:
+    build: ./event_logs_service/service
+    container_name: event_logs_service-service
     ports:
       - "5010:5010"
     volumes:
-      - ./logging/service/logs:/logs
-      - ./logging/service/XES:/XES
+      - ./event_logs_service/service/logs:/logs
+      - ./event_logs_service/service/XES:/XES
 
   zeebe:
     image: camunda/zeebe:8.8.0

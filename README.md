@@ -8,25 +8,37 @@ service produces process logs for conformance analysis.
 ## Structure
 
 ```text
-POESS-project/
-├── sources/api_adapter/
-├── cep/
-├── integration/
-├── pais/camunda/
-├── pais/dcr/microservice/
-├── logging/service/
-├── README.md
-└── docker-compose.yml
+POESS-project
+C:.
+│   .gitignore
+│   docker-compose.yml
+│   README.md
+│           
+├───cep 
+│   └───apps
+│           
+├───event_logs_service
+│   └───service
+│           
+├───integration
+├───pais
+│   ├───bpmn
+│   │   └───microservice
+│   │           
+│   └───dcr
+│       └───microservice
+│               
+└───scripts
 ```
 
 ## Responsibilities
 
-- `sources/api_adapter` consumes API data from external systems.
-- `cep` filters events and emits derived flood events through Siddhi.
+- `cep` runs the Siddhi event-processing application.
 - `integration` routes events to Camunda or DCR and normalizes callbacks.
-- `pais/camunda/bpmn` deploys and runs the flood-response BPMN process.
+- `pais/bpmn/microservice` contains the Camunda BPMN process.
+  - bpmn files should follow the naming convention `P<number>-<name-of-process>.bpmn`.
 - `pais/dcr/microservice` communicates with DCR Graph.
-- `logging/service` stores JSON and XES process logs.
+- `event_logs_service/service` stores JSON and XES process logs.
 
 ## Prerequisites
 
