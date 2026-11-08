@@ -65,7 +65,9 @@ def test_load_existing_simulation(mock_request: MagicMock):
         raise_for_status=lambda: None,
     )
 
-    simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
 
     assert simulation.sim_id == SIMULATION_ID
     assert simulation.url == SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
@@ -82,7 +84,9 @@ def test_load_missing_simulation(mock_request: MagicMock):
     mock_request.return_value = resp
 
     with pytest.raises(requests.HTTPError) as exc_info:
-        _ = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+        _ = Simulation(
+            GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+        )
 
     response = exc_info.value.response
     assert response is not None
@@ -99,7 +103,9 @@ def test_init_simulation_unauthorized(mock_request: MagicMock):
     mock_request.return_value = resp
 
     with pytest.raises(requests.HTTPError) as exc_info:
-        _ = Simulation(GRAPH_ID, Account(USERNAME, INCORRECT_PASSWORD), title=TITLE)
+        _ = Simulation(
+            GRAPH_ID, Account(USERNAME, INCORRECT_PASSWORD), title=TITLE
+        )
 
     response = exc_info.value.response
     assert response is not None
@@ -112,7 +118,9 @@ def test_load_event_state(mock_request: MagicMock):
         json=lambda: SIM_EVENTS_BODY,
         raise_for_status=lambda: None,
     )
-    simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
 
     state = simulation.state
 
@@ -128,7 +136,9 @@ def test_kill_simulation(mock_request: MagicMock):
         json=lambda: SIM_EVENTS_BODY,
         raise_for_status=lambda: None,
     )
-    simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
 
     simulation.kill_simulation()
 
