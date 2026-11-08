@@ -42,6 +42,8 @@ class Simulation:
         self.sim_id = sim_id
         self.url = SIMULATION_URL.format(graph_id, sim_id)
 
+    # ===== Simulation Managment Routes =======================
+
     def _init_simulation(self, title: str) -> requests.Response:
         url = INITIALIZE_SIMULATION_URL.format(self.graph_id)
         payload = json.dumps({"Title": title})
@@ -55,6 +57,8 @@ class Simulation:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, sim_id)
         response = self.account.session.get(url, params={"filter": "all"})
         response.raise_for_status()
+
+    # ===== Event Managment Routes =======================
 
     def _load_event_state(self, event_filter: str = "all") -> State:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)

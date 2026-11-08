@@ -19,14 +19,12 @@ class DCR_Parser:
         value = element.get(key)
         match kind:
             case "bool":
-                # DCR mixes "true" and "False", so compare without case
                 return (value or "").lower() == "true"
             case "int":
                 return int(value) if value else 0
             case "float":
                 return float(value) if value else 0.0
             case "optional":
-                # DCR sends the text "None" for empty values
                 return None if value in (None, "None") else value
             case _:
                 return value or ""
