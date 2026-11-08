@@ -21,6 +21,7 @@ class Simulation:
     sim_id: int
     url: str
     parser: DCR_Parser
+    state: State
 
     def __init__(
         self,
@@ -42,6 +43,8 @@ class Simulation:
         self.sim_id = sim_id
         self.url = SIMULATION_URL.format(graph_id, sim_id)
 
+        self.state = self._refresh_event_state()
+
     # ===== Simulation Managment Routes =======================
 
     def _init_simulation(self, title: str) -> requests.Response:
@@ -60,7 +63,7 @@ class Simulation:
 
     # ===== Event Managment Routes =======================
 
-    def _load_event_state(self, event_filter: str = "all") -> State:
+    def _refresh_event_state(self, event_filter: str = "all") -> State:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)
         response = self.account.session.get(url, params={"filter": event_filter})
         response.raise_for_status()

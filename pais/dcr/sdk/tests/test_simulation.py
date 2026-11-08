@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
@@ -23,11 +23,21 @@ from .constants import (
     USERNAME,
 )
 
+# I decided to as soon as the simulation is intiialize
+# The state is loaded into the Simulation class
+EVENTS_CALL = call(
+    "GET",
+    SIMULATION_EVENTS_URL.format(GRAPH_ID, SIMULATION_ID),
+    params={"filter": "all"},
+    allow_redirects=True,
+)
+
 
 @patch.object(requests.Session, "request")
 def test_init_simulation_success(mock_post: MagicMock):
     mock_post.return_value = MagicMock(
         headers=CaseInsensitiveDict(INIT_HEADERS),
+        json=lambda: SIM_EVENTS_BODY,
         raise_for_status=lambda: None,
     )
 
@@ -36,29 +46,31 @@ def test_init_simulation_success(mock_post: MagicMock):
     assert simulation.sim_id == SIMULATION_ID
     assert simulation.url == SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
 
-    mock_post.assert_called_once_with(
-        "POST",
-        INITIALIZE_SIMULATION_URL.format(GRAPH_ID),
-        data=CALL_TITLE,
-        json=None,
-    )
+    # 1. create the simulation, 2. load its event state
+    assert mock_post.call_args_list == [
+        call(
+            "POST",
+            INITIALIZE_SIMULATION_URL.format(GRAPH_ID),
+            data=CALL_TITLE,
+            json=None,
+        ),
+        EVENTS_CALL,
+    ]
 
 
 @patch.object(requests.Session, "request")
 def test_load_existing_simulation(mock_request: MagicMock):
-    mock_request.return_value = MagicMock(raise_for_status=lambda: None)
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
 
     simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
 
     assert simulation.sim_id == SIMULATION_ID
     assert simulation.url == SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
 
-    mock_request.assert_called_once_with(
-        "GET",
-        SIMULATION_EVENTS_URL.format(GRAPH_ID, SIMULATION_ID),
-        params={"filter": "all"},
-        allow_redirects=True,
-    )
+    assert mock_request.call_args_list == [EVENTS_CALL, EVENTS_CALL]
 
 
 @patch.object(requests.Session, "request")
@@ -102,14 +114,9 @@ def test_load_event_state(mock_request: MagicMock):
     )
     simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
 
-    state = simulation._load_event_state()
+    state = simulation.state
 
-    mock_request.assert_called_with(
-        "GET",
-        SIMULATION_EVENTS_URL.format(GRAPH_ID, SIMULATION_ID),
-        params={"filter": "all"},
-        allow_redirects=True,
-    )
+    assert mock_request.call_args == EVENTS_CALL
 
     assert state.events["FilloutExpenseReport"].enabled is True
     assert state.events["Approve"].enabled is False
