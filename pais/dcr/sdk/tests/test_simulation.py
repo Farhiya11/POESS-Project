@@ -18,6 +18,7 @@ from .constants import (
     INCORRECT_PASSWORD,
     INIT_HEADERS,
     PASSWORD,
+    SIM_EVENTS_BODY,
     SIMULATION_ID,
     TITLE,
     USERNAME,
@@ -92,3 +93,24 @@ def test_init_simulation_unauthorized(mock_request: MagicMock):
     response = exc_info.value.response
     assert response is not None
     assert response.status_code == 401
+
+
+@patch.object(requests.Session, "request")
+def test_load_event_state(mock_request: MagicMock):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+
+    state = simulation._load_event_state()
+
+    mock_request.assert_called_with(
+        "GET",
+        SIMULATION_EVENTS_URL.format(GRAPH_ID, SIMULATION_ID),
+        params={"filter": "all"},
+        allow_redirects=True,
+    )
+
+    assert state.events["FilloutExpenseReport"].enabled is True
+    assert state.events["Approve"].enabled is False
