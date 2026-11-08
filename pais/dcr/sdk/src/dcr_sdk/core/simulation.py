@@ -97,6 +97,6 @@ class Simulation:
     def _print_event(self, event: Event, zen: bool, depth: int = 0) -> None:
         pad = "    " * depth
         view = EventView(event, self._is_container(event))
-        print(pad + (view.label if zen else view.details(pad)))
+        print(pad + (f'{view.label}' if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)

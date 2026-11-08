@@ -23,10 +23,10 @@ class EventView:
     @property
     def label(self) -> str:
         if self.is_container:
-            return Color.paint(self.event.label, Color.BOLD, Color.MAGENTA)
+            return f"{Color.paint(self.event.label, Color.BOLD, Color.MAGENTA)} (ID:{self.event.id})"
         if self.event.pending:
-            return Color.paint(self.event.label, Color.BOLD, Color.BLUE)
-        return Color.grey(self.event.label)
+            return f"{Color.paint(self.event.label, Color.BOLD, Color.BLUE)} (ID:{self.event.id})"
+        return Color.grey(f"{self.event.label} (ID:{self.event.id})")
 
     @property
     def state(self) -> str:
