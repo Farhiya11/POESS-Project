@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 import requests
 
@@ -60,4 +61,4 @@ class Simulation:
         response = self.account.session.get(url, params={"filter": event_filter})
         response.raise_for_status()
         # DCR wraps the events XML in a JSON string
-        return self.parser.parse_state(response.json())
+        return self.parser.parse_state(cast(str, response.json()))
