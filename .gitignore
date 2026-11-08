@@ -4,7 +4,7 @@
 venv/
 __pycache__/
 
-# Runtime logging and generated XES artifacts
+# Runtime event_logs_service and generated XES artifacts
 logs/
 XES/
 #Ale uv local development package manager files
@@ -15,3 +15,4 @@ uv.lock
 .ruff_cache/
 #Ale test files
 pais/dcr/sdk/main.py
+/.idea/
