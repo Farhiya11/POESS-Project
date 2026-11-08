@@ -6,13 +6,15 @@ from typing import cast
 import requests
 
 from dcr_sdk.core.account import Account
-from dcr_sdk.models import State
+from dcr_sdk.models import Event, State
+from dcr_sdk.utils.color import Color
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,
 )
 from dcr_sdk.utils.dcr_parser import DCR_Parser
+from dcr_sdk.utils.event_view import EventView
 
 
 class Simulation:
@@ -69,7 +71,32 @@ class Simulation:
 
     def _refresh_event_state(self, event_filter: str = "all") -> State:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)
-        response = self.account.session.get(url, params={"filter": event_filter})
+        response = self.account.session.get(
+            url, params={"filter": event_filter}
+        )
         response.raise_for_status()
         # DCR wraps the events XML in a JSON string
         return self.parser.parse_state(cast(str, response.json()))
+
+    # ===== Visualization =======================
+
+    def print_events(self, zen: bool = False) -> None:
+        print(Color.header("EVENT TREE"))
+        for event in self._children(""):
+            self._print_event(event, zen)
+
+    def _children(self, parent_id: str) -> list[Event]:
+        events = self.state.events.values()
+        return [e for e in events if e.parent == parent_id]
+
+    # If it has children, the program will default to subgraph
+    def _is_container(self, event: Event) -> bool:
+        return bool(event.type) or bool(self._children(event.id))
+
+    # Zen mode is to only focus what is to be executed
+    def _print_event(self, event: Event, zen: bool, depth: int = 0) -> None:
+        pad = "    " * depth
+        view = EventView(event, self._is_container(event))
+        print(pad + (view.label if zen else view.details(pad)))
+        for child in self._children(event.id):
+            self._print_event(child, zen, depth + 1)
