@@ -38,7 +38,7 @@ extra-dependencies = [
 check = "mypy --install-types --non-interactive {args:src/dcr_sdk tests}"
 
 [tool.coverage.run]
-source_pkgs = ["dcr_sdk", "tests"]
+source_pkgs = ["dcr_sdk", "tests", "manual"]
 branch = true
 parallel = true
 

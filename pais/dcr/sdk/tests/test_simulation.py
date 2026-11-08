@@ -120,3 +120,18 @@ def test_load_event_state(mock_request: MagicMock):
 
     assert state.events["FilloutExpenseReport"].enabled is True
     assert state.events["Approve"].enabled is False
+
+
+@patch.object(requests.Session, "request")
+def test_kill_simulation(mock_request: MagicMock):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID)
+
+    simulation.kill_simulation()
+
+    assert mock_request.call_args == call(
+        "DELETE", SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
+    )

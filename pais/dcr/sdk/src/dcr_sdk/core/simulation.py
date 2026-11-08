@@ -61,6 +61,10 @@ class Simulation:
         response = self.account.session.get(url, params={"filter": "all"})
         response.raise_for_status()
 
+    def kill_simulation(self) -> None:
+        response = self.account.session.delete(self.url)
+        response.raise_for_status()
+
     # ===== Event Managment Routes =======================
 
     def _refresh_event_state(self, event_filter: str = "all") -> State:
