@@ -5,11 +5,13 @@ import json
 import requests
 
 from dcr_sdk.core.account import Account
+from dcr_sdk.models.models import State
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,
 )
+from dcr_sdk.utils.dcr_parser import DCR_Parser
 
 
 class Simulation:
@@ -17,6 +19,7 @@ class Simulation:
     account: Account
     sim_id: int
     url: str
+    parser: DCR_Parser
 
     def __init__(
         self,
@@ -27,6 +30,7 @@ class Simulation:
     ):
         self.graph_id = graph_id
         self.account = account
+        self.parser = DCR_Parser()
 
         if sim_id is None:
             response = self._init_simulation(title)
@@ -50,3 +54,10 @@ class Simulation:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, sim_id)
         response = self.account.session.get(url, params={"filter": "all"})
         response.raise_for_status()
+
+    def _load_event_state(self, event_filter: str = "all") -> State:
+        url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)
+        response = self.account.session.get(url, params={"filter": event_filter})
+        response.raise_for_status()
+        # DCR wraps the events XML in a JSON string
+        return self.parser.parse_state(response.json())

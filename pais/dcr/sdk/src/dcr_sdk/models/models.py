@@ -29,18 +29,20 @@ class Sim:
 @dataclass(frozen=True)
 class Event:
     id: str
+    label: str
+    event_type: str
+    # EVENT STATE
     included: bool
     enabled: bool
     pending: bool
     effectively_pending: bool
     effectively_included: bool
     executed: bool
+    # EVENT METADATA
     full_path: str
     roles: str
     groups: str
     description: str
-    label: str
-    event_type: str
     phases: str
     deadline: str
     sequence: int

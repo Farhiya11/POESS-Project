@@ -4,7 +4,7 @@ import requests
 
 from dcr_sdk.models.models import Graph, Sim
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, DEFAULT_HEADERS, GRAPH_SIMS_URL
-from dcr_sdk.utils.parser import parse_graphs, parse_sims
+from dcr_sdk.utils.dcr_parser import DCR_Parser
 
 
 class Account:
@@ -35,7 +35,7 @@ class Account:
     # ====== SDK object transformed for usage =======
 
     def get_graphs(self) -> list[Graph]:
-        return parse_graphs(self._request_graphs().text)
+        return DCR_Parser.parse_graphs(self._request_graphs().text)
 
     def get_sims(self, graph_id: int) -> list[Sim]:
-        return parse_sims(self._request_sims(graph_id).text)
+        return DCR_Parser.parse_sims(self._request_sims(graph_id).text)
