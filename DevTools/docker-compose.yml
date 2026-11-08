@@ -1,8 +1,0 @@
-services:
-
-  siddhi:
-    image: siddhiio/siddhi-tooling:latest
-    container_name: siddhi-tooling
-    ports:
-      - "9390:9390"
-    restart: unless-stopped

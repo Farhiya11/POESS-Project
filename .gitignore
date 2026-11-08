@@ -4,6 +4,7 @@
 venv/
 __pycache__/
 
-# Runtime logging and generated XES artifacts
+# Runtime event_logs_service and generated XES artifacts
 logs/
 XES/
+/.idea/
