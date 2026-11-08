@@ -81,8 +81,12 @@ class DCR_Parser:
                     included=get(event, "included", "bool"),
                     enabled=get(event, "enabled", "bool"),
                     pending=get(event, "pending", "bool"),
-                    effectively_pending=get(event, "EffectivelyPending", "bool"),
-                    effectively_included=get(event, "EffectivelyIncluded", "bool"),
+                    effectively_pending=get(
+                        event, "EffectivelyPending", "bool"
+                    ),
+                    effectively_included=get(
+                        event, "EffectivelyIncluded", "bool"
+                    ),
                     executed=get(event, "executed", "bool"),
                     full_path=get(event, "fullPath"),
                     roles=get(event, "roles"),
