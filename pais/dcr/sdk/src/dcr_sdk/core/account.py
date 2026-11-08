@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import requests
 
-from dcr_sdk.models.models import Graph, Sim
+from dcr_sdk.models import Graph, Sim
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, DEFAULT_HEADERS, GRAPH_SIMS_URL
 from dcr_sdk.utils.dcr_parser import DCR_Parser
 

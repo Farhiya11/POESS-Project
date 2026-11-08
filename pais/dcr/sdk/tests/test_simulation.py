@@ -4,8 +4,7 @@ import pytest
 import requests
 from requests.structures import CaseInsensitiveDict
 
-from dcr_sdk.core.account import Account
-from dcr_sdk.core.simulation import Simulation
+from dcr_sdk import Account, Simulation
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENTS_URL,

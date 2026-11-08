@@ -1,4 +1,4 @@
-from dcr_sdk.models.models import Event, Graph, Sim
+from dcr_sdk import Event, Graph, Sim
 from dcr_sdk.utils.dcr_parser import DCR_Parser
 
 from .constants import ACCOUNT_GRAPH_BODY, GRAPH_SIMS_BODY, SIM_EVENTS_BODY

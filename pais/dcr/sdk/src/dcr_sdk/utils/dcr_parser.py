@@ -7,7 +7,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from dcr_sdk.models.models import Event, Graph, Sim, State
+from dcr_sdk.models import Event, Graph, Sim, State
 
 
 class DCR_Parser:
