@@ -10,6 +10,7 @@ from dcr_sdk.models import Event, State
 from dcr_sdk.utils.color import Color
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
+    SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,
 )
@@ -78,6 +79,13 @@ class Simulation:
         # DCR wraps the events XML in a JSON string
         return self.parser.parse_state(cast(str, response.json()))
 
+    def execute_event(self, event_id: str, role: str | None = None) -> None:
+        url = SIMULATION_EVENT_URL.format(self.graph_id, self.sim_id, event_id)
+        payload = json.dumps({"Role": role} if role else {})
+        response = self.account.session.post(url, data=payload)
+        response.raise_for_status()
+        self.state = self._refresh_event_state()
+
     # ===== Visualization =======================
 
     def print_events(self, zen: bool = False) -> None:
@@ -97,6 +105,6 @@ class Simulation:
     def _print_event(self, event: Event, zen: bool, depth: int = 0) -> None:
         pad = "    " * depth
         view = EventView(event, self._is_container(event))
-        print(pad + (f'{view.label}' if zen else view.details(pad)))
+        print(pad + (f"{view.label}" if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)
