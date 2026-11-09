@@ -172,3 +172,27 @@ def test_execute_event(mock_request: MagicMock):
         ),
         EVENTS_CALL,
     ]
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [("true", True), ('"True"', True), ("false", False), ('"False"', False)],
+)
+@patch.object(requests.Session, "request")
+def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        text=body,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+
+    assert simulation.is_concluded() is expected
+    assert mock_request.call_args == call(
+        "GET",
+        SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID),
+        params={"filter": "isAccepting"},
+        allow_redirects=True,
+    )

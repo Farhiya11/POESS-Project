@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import cast
 
 import requests
@@ -68,6 +69,15 @@ class Simulation:
         response = self.account.session.delete(self.url)
         response.raise_for_status()
 
+    # DCR calls this "accepting": no included pending events are left
+    # The body can come back as true, "true" or "True", so we normalize it
+    def is_concluded(self) -> bool:
+        response = self.account.session.get(
+            self.url, params={"filter": "isAccepting"}
+        )
+        response.raise_for_status()
+        return response.text.strip().strip('"').lower() == "true"
+
     # ===== Event Managment Routes =======================
 
     def _refresh_event_state(self, event_filter: str = "all") -> State:
@@ -84,7 +94,11 @@ class Simulation:
         payload = json.dumps({"Role": role} if role else {})
         response = self.account.session.post(url, data=payload)
         response.raise_for_status()
-        self.state = self._refresh_event_state()
+        new_state = self._refresh_event_state()
+        if new_state == self.state:
+            warnings.warn("State of simulation did not change on event trigger")
+        else:
+            self.state = self._refresh_event_state()
 
     # ===== Visualization =======================
 
