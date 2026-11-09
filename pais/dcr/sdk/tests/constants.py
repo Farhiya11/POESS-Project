@@ -41,3 +41,8 @@ GRAPH_SIMS_BODY = (
 SIM_EVENTS_BODY = (
     Path(__file__).parent / "mock_data" / "sim_events_body.xml"
 ).read_text()
+# Shaped like graph 2016062: a Subprocess box (A1) used for visual grouping,
+# with a pending child (A3) that DCR doesn't count as effectively pending
+SIM_EVENTS_SUBPROCESS_BODY = (
+    Path(__file__).parent / "mock_data" / "sim_events_subprocess_body.xml"
+).read_text()

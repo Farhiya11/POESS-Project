@@ -69,8 +69,10 @@ class Simulation:
         response = self.account.session.delete(self.url)
         response.raise_for_status()
 
+    # We don't use DCR's isAccepting: it ignores pending events inside
+    # Subprocess boxes, which we only use for visual grouping
     def is_concluded(self) -> bool:
-        return self.state.is_accepting
+        return not self.state.pending()
 
     # ===== Event Managment Routes =======================
 
@@ -88,6 +90,8 @@ class Simulation:
         event = self.state.events.get(event_id)
         if event is None:
             raise ValueError(f"Event {event_id!r} does not exist")
+        if event.is_container:
+            raise ValueError(f"Event {event_id!r} is a box, not an activity")
         if not event.enabled:
             raise ValueError(f"Event {event_id!r} is not enabled")
 
@@ -112,14 +116,10 @@ class Simulation:
         events = self.state.events.values()
         return [e for e in events if e.parent == parent_id]
 
-    # If it has children, the program will default to subgraph
-    def _is_container(self, event: Event) -> bool:
-        return bool(event.type) or bool(self._children(event.id))
-
     # Zen mode is to only focus what is to be executed
     def _print_event(self, event: Event, zen: bool, depth: int = 0) -> None:
         pad = "    " * depth
-        view = EventView(event, self._is_container(event))
+        view = EventView(event)
         print(pad + (f"{view.label}" if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)

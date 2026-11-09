@@ -1,7 +1,12 @@
 from dcr_sdk import Event, Graph, Sim
 from dcr_sdk.utils.dcr_parser import DCR_Parser
 
-from .constants import ACCOUNT_GRAPH_BODY, GRAPH_SIMS_BODY, SIM_EVENTS_BODY
+from .constants import (
+    ACCOUNT_GRAPH_BODY,
+    GRAPH_SIMS_BODY,
+    SIM_EVENTS_BODY,
+    SIM_EVENTS_SUBPROCESS_BODY,
+)
 
 
 def test_parse_graphs():
@@ -98,3 +103,14 @@ def test_state_enabled_and_pending():
 
     assert [e.id for e in state.enabled()] == ["FilloutExpenseReport"]
     assert [e.id for e in state.pending()] == ["FilloutExpenseReport"]
+
+
+def test_state_with_subprocess_box():
+    state = DCR_Parser.parse_state(SIM_EVENTS_SUBPROCESS_BODY)
+
+    assert state.events["A1"].is_container is True
+    assert state.events["A3"].is_container is False
+    # The box is enabled for DCR, but it's not an activity
+    assert [e.id for e in state.enabled()] == ["A3"]
+    # Raw pending counts, even though EffectivelyPending is false
+    assert [e.id for e in state.pending()] == ["A3"]

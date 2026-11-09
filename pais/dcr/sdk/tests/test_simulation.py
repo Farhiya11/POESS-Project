@@ -19,6 +19,7 @@ from .constants import (
     INIT_HEADERS,
     PASSWORD,
     SIM_EVENTS_BODY,
+    SIM_EVENTS_SUBPROCESS_BODY,
     SIMULATION_ID,
     TITLE,
     USERNAME,
@@ -185,7 +186,7 @@ def test_is_concluded(mock_request: MagicMock):
     )
     calls_before = mock_request.call_count
 
-    # The mock XML has isAccepting="False"
+    # FilloutExpenseReport is still pending
     assert simulation.is_concluded() is False
     # Read from the loaded state, nothing is sent to DCR
     assert mock_request.call_count == calls_before
@@ -212,4 +213,24 @@ def test_execute_event_rejected(
         simulation.execute_event(event_id)
 
     # Nothing is sent to DCR
+    assert mock_request.call_count == calls_before
+
+
+@patch.object(requests.Session, "request")
+def test_subprocess_box(mock_request: MagicMock):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_SUBPROCESS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+    calls_before = mock_request.call_count
+
+    # DCR says isAccepting="True", but A3 inside the box is still pending
+    assert simulation.is_concluded() is False
+
+    # Boxes are rejected before anything is sent to DCR
+    with pytest.raises(ValueError, match="is a box"):
+        simulation.execute_event("A1")
     assert mock_request.call_count == calls_before

@@ -1,0 +1,5 @@
+<events nextDelay="None" nextDeadline="None" isAccepting="True" currentTime="2026-11-09T10:00:00.0000000+00:00" currentPhase="0">
+  <event id="A1" included="true" enabled="true" pending="false" EffectivelyPending="false" EffectivelyIncluded="true" executed="false" fullPath="A1" roles="" groups="" description="" label="Pre-Desicions" eventType="" phases="" deadline="" sequence="0" parent="" type="Subprocess" referId=""><eventTypeData></eventTypeData></event>
+  <event id="A3" included="true" enabled="true" pending="true" EffectivelyPending="false" EffectivelyIncluded="true" executed="false" fullPath="A3" roles="" groups="" description="" label="High water hits a coastal stretch [A0]" eventType="" phases="" deadline="" sequence="1" parent="A1" type="" referId=""><eventTypeData></eventTypeData></event>
+  <event id="A4" included="true" enabled="false" pending="false" EffectivelyPending="false" EffectivelyIncluded="true" executed="false" fullPath="A4" roles="" groups="" description="" label="Wait until the water level has peaked [A03]" eventType="" phases="" deadline="" sequence="2" parent="A1" type="" referId=""><eventTypeData></eventTypeData></event>
+</events>

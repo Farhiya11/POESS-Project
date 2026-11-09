@@ -10,11 +10,10 @@ from dcr_sdk.utils.color import Color
 @dataclass(frozen=True)
 class EventView:
     event: Event
-    is_container: bool
 
     @property
     def kind(self) -> str:
-        if self.is_container:
+        if self.event.is_container:
             return Color.magenta("CONTAINER")
         return Color.cyan("ACTIVITY")
 
@@ -22,7 +21,7 @@ class EventView:
     # Activities are blue when pending, grey otherwise.
     @property
     def label(self) -> str:
-        if self.is_container:
+        if self.event.is_container:
             return f"{Color.paint(self.event.label, Color.BOLD, Color.MAGENTA)} (ID:{self.event.id})"
         if self.event.pending:
             return f"{Color.paint(self.event.label, Color.BOLD, Color.BLUE)} (ID:{self.event.id})"

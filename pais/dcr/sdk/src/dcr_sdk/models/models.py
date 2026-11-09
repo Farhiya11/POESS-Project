@@ -51,6 +51,12 @@ class Event:
     refer_id: str
     event_type_data: str
 
+    # Subprocess and nesting boxes only group activities, they can't be
+    # executed (DCR answers 400 "... cannot be executed as it is a sub-process")
+    @property
+    def is_container(self) -> bool:
+        return self.type.lower() in ("subprocess", "nesting")
+
 
 @dataclass(frozen=True)
 class State:
@@ -63,8 +69,11 @@ class State:
 
     # ========= Expanded Arsenary of Function ===================
 
+    # Activities that can be executed right now
     def enabled(self) -> list[Event]:
-        return [e for e in self.events.values() if e.enabled]
+        events = self.events.values()
+        return [e for e in events if e.enabled and not e.is_container]
 
     def pending(self) -> list[Event]:
-        return [e for e in self.events.values() if e.effectively_pending]
+        events = self.events.values()
+        return [e for e in events if e.pending and e.included]
