@@ -91,3 +91,10 @@ def test_parse_state():
         refer_id="",
         event_type_data="",
     )
+
+
+def test_state_enabled_and_pending():
+    state = DCR_Parser.parse_state(SIM_EVENTS_BODY)
+
+    assert [e.id for e in state.enabled()] == ["FilloutExpenseReport"]
+    assert [e.id for e in state.pending()] == ["FilloutExpenseReport"]

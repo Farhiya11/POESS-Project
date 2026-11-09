@@ -69,14 +69,8 @@ class Simulation:
         response = self.account.session.delete(self.url)
         response.raise_for_status()
 
-    # DCR calls this "accepting": no included pending events are left
-    # The body can come back as true, "true" or "True", so we normalize it
     def is_concluded(self) -> bool:
-        response = self.account.session.get(
-            self.url, params={"filter": "isAccepting"}
-        )
-        response.raise_for_status()
-        return response.text.strip().strip('"').lower() == "true"
+        return self.state.is_accepting
 
     # ===== Event Managment Routes =======================
 

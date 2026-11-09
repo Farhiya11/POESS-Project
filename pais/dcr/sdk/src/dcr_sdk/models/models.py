@@ -60,3 +60,11 @@ class State:
     current_time: str
     current_phase: int
     events: dict[str, Event]
+
+    # ========= Expanded Arsenary of Function ===================
+
+    def enabled(self) -> list[Event]:
+        return [e for e in self.events.values() if e.enabled]
+
+    def pending(self) -> list[Event]:
+        return [e for e in self.events.values() if e.effectively_pending]

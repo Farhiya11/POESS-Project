@@ -174,28 +174,21 @@ def test_execute_event(mock_request: MagicMock):
     ]
 
 
-@pytest.mark.parametrize(
-    ("body", "expected"),
-    [("true", True), ('"True"', True), ("false", False), ('"False"', False)],
-)
 @patch.object(requests.Session, "request")
-def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
+def test_is_concluded(mock_request: MagicMock):
     mock_request.return_value = MagicMock(
         json=lambda: SIM_EVENTS_BODY,
-        text=body,
         raise_for_status=lambda: None,
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
     )
+    calls_before = mock_request.call_count
 
-    assert simulation.is_concluded() is expected
-    assert mock_request.call_args == call(
-        "GET",
-        SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID),
-        params={"filter": "isAccepting"},
-        allow_redirects=True,
-    )
+    # The mock XML has isAccepting="False"
+    assert simulation.is_concluded() is False
+    # Read from the loaded state, nothing is sent to DCR
+    assert mock_request.call_count == calls_before
 
 
 @pytest.mark.parametrize(
