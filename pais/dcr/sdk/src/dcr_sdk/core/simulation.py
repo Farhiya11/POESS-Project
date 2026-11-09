@@ -89,7 +89,14 @@ class Simulation:
         # DCR wraps the events XML in a JSON string
         return self.parser.parse_state(cast(str, response.json()))
 
+    # This is a simple quality of life function
     def execute_event(self, event_id: str, role: str | None = None) -> None:
+        event = self.state.events.get(event_id)
+        if event is None:
+            raise ValueError(f"Event {event_id!r} does not exist")
+        if not event.enabled:
+            raise ValueError(f"Event {event_id!r} is not enabled")
+
         url = SIMULATION_EVENT_URL.format(self.graph_id, self.sim_id, event_id)
         payload = json.dumps({"Role": role} if role else {})
         response = self.account.session.post(url, data=payload)

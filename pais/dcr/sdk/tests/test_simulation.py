@@ -196,3 +196,27 @@ def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
         params={"filter": "isAccepting"},
         allow_redirects=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("event_id", "message"),
+    [("Approve", "is not enabled"), ("Missing", "does not exist")],
+)
+@patch.object(requests.Session, "request")
+def test_execute_event_rejected(
+    mock_request: MagicMock, event_id: str, message: str
+):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+    calls_before = mock_request.call_count
+
+    with pytest.raises(ValueError, match=message):
+        simulation.execute_event(event_id)
+
+    # Nothing is sent to DCR
+    assert mock_request.call_count == calls_before
