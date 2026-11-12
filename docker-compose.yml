@@ -36,7 +36,10 @@ services:
       - event_logs_service
 
   microservice:
-    build: ./pais/dcr/microservice
+    build:
+      context: ./pais/dcr/microservice
+      additional_contexts:
+        dcr-sdk: ./pais/dcr/sdk
     container_name: microservice
     ports:
       - "5002:5001"
