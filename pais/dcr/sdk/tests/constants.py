@@ -38,3 +38,6 @@ ACCOUNT_GRAPH_BODY = (
 GRAPH_SIMS_BODY = (
     Path(__file__).parent / "mock_data" / "graph_sims_body.xml"
 ).read_text()
+SIM_EVENTS_BODY = (
+    Path(__file__).parent / "mock_data" / "sim_events_body.xml"
+).read_text()

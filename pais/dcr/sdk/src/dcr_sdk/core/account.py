@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import requests
 
-from dcr_sdk.constants import ACCOUNT_GRAPHS_URL, DEFAULT_HEADERS, GRAPH_SIMS_URL
 from dcr_sdk.models import Graph, Sim
-from dcr_sdk.parser import parse_graphs, parse_sims
+from dcr_sdk.utils.constants import (
+    ACCOUNT_GRAPHS_URL,
+    DEFAULT_HEADERS,
+    GRAPH_SIMS_URL,
+)
+from dcr_sdk.utils.dcr_parser import DCR_Parser
 
 
 class Account:
@@ -27,7 +31,6 @@ class Account:
         response.raise_for_status()
         return response
 
-
     def _request_sims(self, graph_id: int) -> requests.Response:
         response = self.session.get(GRAPH_SIMS_URL.format(graph_id))
         response.raise_for_status()
@@ -36,7 +39,7 @@ class Account:
     # ====== SDK object transformed for usage =======
 
     def get_graphs(self) -> list[Graph]:
-        return parse_graphs(self._request_graphs().text)
+        return DCR_Parser.parse_graphs(self._request_graphs().text)
 
     def get_sims(self, graph_id: int) -> list[Sim]:
-        return parse_sims(self._request_sims(graph_id).text)
+        return DCR_Parser.parse_sims(self._request_sims(graph_id).text)

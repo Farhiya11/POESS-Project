@@ -27,6 +27,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.ruff]
+line-length = 80
 src = ["pais/dcr/sdk/src"]
 
 [tool.ruff.lint]
