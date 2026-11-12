@@ -13,4 +13,6 @@ uv.lock
 .python-version
 .pytest_cache/
 .ruff_cache/
+#Ale test files
+pais/dcr/sdk/main.py
 /.idea/

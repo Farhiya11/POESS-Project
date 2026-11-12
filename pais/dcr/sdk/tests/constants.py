@@ -1,5 +1,10 @@
+from pathlib import Path
+
 # Graph
 GRAPH_ID = 4013
+
+# Simulation
+SIMULATION_ID = 2108170
 
 # Credentials
 USERNAME = "test-user"
@@ -19,9 +24,20 @@ INIT_HEADERS = {
     "server": "Microsoft-IIS/10.0",
     "www-authenticate": "Basic",
     "simulationid": "2108170",  # For some reason this is the response
-    "x-dcr-simulation-id": "2108170",
+    "X-Dcr-Simulation-Id": "2108170",
     "last-modifieddate": "2026-05-21 09:09:47.867",
     "x-dcr-graph-modifiedtime": "2026-05-21 09:09:47.867",
     "x-powered-by": "ASP.NET",
     "date": "Fri, 06 Nov 2026 12:55:53 GMT",
 }
+
+# Sanity Folder Mock Data
+ACCOUNT_GRAPH_BODY = (
+    Path(__file__).parent / "mock_data" / "account_graph_body.xml"
+).read_text()
+GRAPH_SIMS_BODY = (
+    Path(__file__).parent / "mock_data" / "graph_sims_body.xml"
+).read_text()
+SIM_EVENTS_BODY = (
+    Path(__file__).parent / "mock_data" / "sim_events_body.xml"
+).read_text()

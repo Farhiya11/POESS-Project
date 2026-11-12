@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "dcr-sdk"
 version = "0.0.1"
 description = 'DCR Graph SDK for mental stability, thanks'
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
@@ -15,8 +15,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -40,7 +38,7 @@ extra-dependencies = [
 check = "mypy --install-types --non-interactive {args:src/dcr_sdk tests}"
 
 [tool.coverage.run]
-source_pkgs = ["dcr_sdk", "tests"]
+source_pkgs = ["dcr_sdk", "tests", "manual"]
 branch = true
 parallel = true
 
