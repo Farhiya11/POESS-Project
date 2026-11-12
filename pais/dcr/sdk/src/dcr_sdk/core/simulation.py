@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import cast
 
 import requests
@@ -10,6 +11,7 @@ from dcr_sdk.models import Event, State
 from dcr_sdk.utils.color import Color
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
+    SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,
 )
@@ -67,6 +69,15 @@ class Simulation:
         response = self.account.session.delete(self.url)
         response.raise_for_status()
 
+    # DCR calls this "accepting": no included pending events are left
+    # The body can come back as true, "true" or "True", so we normalize it
+    def is_concluded(self) -> bool:
+        response = self.account.session.get(
+            self.url, params={"filter": "isAccepting"}
+        )
+        response.raise_for_status()
+        return response.text.strip().strip('"').lower() == "true"
+
     # ===== Event Managment Routes =======================
 
     def _refresh_event_state(self, event_filter: str = "all") -> State:
@@ -77,6 +88,24 @@ class Simulation:
         response.raise_for_status()
         # DCR wraps the events XML in a JSON string
         return self.parser.parse_state(cast(str, response.json()))
+
+    # This is a simple quality of life function
+    def execute_event(self, event_id: str, role: str | None = None) -> None:
+        event = self.state.events.get(event_id)
+        if event is None:
+            raise ValueError(f"Event {event_id!r} does not exist")
+        if not event.enabled:
+            raise ValueError(f"Event {event_id!r} is not enabled")
+
+        url = SIMULATION_EVENT_URL.format(self.graph_id, self.sim_id, event_id)
+        payload = json.dumps({"Role": role} if role else {})
+        response = self.account.session.post(url, data=payload)
+        response.raise_for_status()
+        new_state = self._refresh_event_state()
+        if new_state == self.state:
+            warnings.warn("State of simulation did not change on event trigger")
+        else:
+            self.state = self._refresh_event_state()
 
     # ===== Visualization =======================
 
@@ -97,6 +126,6 @@ class Simulation:
     def _print_event(self, event: Event, zen: bool, depth: int = 0) -> None:
         pad = "    " * depth
         view = EventView(event, self._is_container(event))
-        print(pad + (f'{view.label}' if zen else view.details(pad)))
+        print(pad + (f"{view.label}" if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)

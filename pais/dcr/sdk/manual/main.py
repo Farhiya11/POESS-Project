@@ -6,10 +6,13 @@ from dcr_sdk import Account, Simulation
 P3_NAIVE = 2016062
 ACTIVE_SIM = 2108434
 
+
 def __main__():
     account = Account(os.environ["DCR_USERNAME"], os.environ["DCR_PASSWORD"])
     simulation = Simulation(P3_NAIVE, account, ACTIVE_SIM)
-    simulation.print_events(sys.argv[1] == 'zen')
+    simulation.print_events(sys.argv[1] == "zen")
+    simulation.execute_event("A5")
+
 
 __main__()
 

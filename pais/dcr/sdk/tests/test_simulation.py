@@ -7,6 +7,7 @@ from requests.structures import CaseInsensitiveDict
 from dcr_sdk import Account, Simulation
 from dcr_sdk.utils.constants import (
     INITIALIZE_SIMULATION_URL,
+    SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
     SIMULATION_URL,
 )
@@ -145,3 +146,77 @@ def test_kill_simulation(mock_request: MagicMock):
     assert mock_request.call_args == call(
         "DELETE", SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
     )
+
+
+@patch.object(requests.Session, "request")
+def test_execute_event(mock_request: MagicMock):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+
+    simulation.execute_event("FilloutExpenseReport", role="Employee")
+
+    # 1. execute the event, 2. reload the event state
+    assert mock_request.call_args_list[-2:] == [
+        call(
+            "POST",
+            SIMULATION_EVENT_URL.format(
+                GRAPH_ID, SIMULATION_ID, "FilloutExpenseReport"
+            ),
+            data='{"Role": "Employee"}',
+            json=None,
+        ),
+        EVENTS_CALL,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [("true", True), ('"True"', True), ("false", False), ('"False"', False)],
+)
+@patch.object(requests.Session, "request")
+def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        text=body,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+
+    assert simulation.is_concluded() is expected
+    assert mock_request.call_args == call(
+        "GET",
+        SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID),
+        params={"filter": "isAccepting"},
+        allow_redirects=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("event_id", "message"),
+    [("Approve", "is not enabled"), ("Missing", "does not exist")],
+)
+@patch.object(requests.Session, "request")
+def test_execute_event_rejected(
+    mock_request: MagicMock, event_id: str, message: str
+):
+    mock_request.return_value = MagicMock(
+        json=lambda: SIM_EVENTS_BODY,
+        raise_for_status=lambda: None,
+    )
+    simulation = Simulation(
+        GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
+    )
+    calls_before = mock_request.call_count
+
+    with pytest.raises(ValueError, match=message):
+        simulation.execute_event(event_id)
+
+    # Nothing is sent to DCR
+    assert mock_request.call_count == calls_before
