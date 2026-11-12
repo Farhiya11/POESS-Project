@@ -2,10 +2,15 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from dcr_sdk.core.account import Account
-from dcr_sdk.models.models import Graph, Sim
+from dcr_sdk import Account, Graph, Sim
 
-from .constants import ACCOUNT_GRAPH_BODY, GRAPH_ID, GRAPH_SIMS_BODY, PASSWORD, USERNAME
+from .constants import (
+    ACCOUNT_GRAPH_BODY,
+    GRAPH_ID,
+    GRAPH_SIMS_BODY,
+    PASSWORD,
+    USERNAME,
+)
 
 
 @patch.object(requests.Session, "request")

@@ -5,6 +5,7 @@ GRAPH_SIMS_URL: str = f"{HOST}/api/graphs/{{}}/sims"
 INITIALIZE_SIMULATION_URL: str = GRAPH_SIMS_URL
 SIMULATION_URL: str = f"{HOST}/api/graphs/{{}}/sims/{{}}"
 SIMULATION_EVENTS_URL: str = f"{SIMULATION_URL}/events"
+SIMULATION_EVENT_URL: str = f"{SIMULATION_EVENTS_URL}/{{}}"
 
 
 # Protocol Variables
