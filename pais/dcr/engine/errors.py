@@ -2,11 +2,9 @@ class DCREngineError(Exception):
     """Base class for every error raised by the DCR engine."""
 
 
-class SimulationDoesNotExistError(DCREngineError):
-    simulation_title: str
+class GraphDoesNotExistError(DCREngineError):
+    graph_title: str
 
-    def __init__(self, simulation_title: str):
-        self.simulation_title = simulation_title
-        super().__init__(
-            f"Simulation '{simulation_title}' does not exist in any of the account's graphs"
-        )
+    def __init__(self, graph_title: str):
+        self.graph_title = graph_title
+        super().__init__(f"Graph '{graph_title}' does not exist in the account")

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from pais.dcr.engine.core import DCR_Engine
-from pais.dcr.engine.errors import SimulationDoesNotExistError
+from pais.dcr.engine.errors import GraphDoesNotExistError
 
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, GRAPH_SIMS_URL
 
@@ -19,6 +19,8 @@ P3_NAIVE = 2016062
 PAYOUT = 2016043
 ACTIVE_SIM = 2108620
 ACTIVE_SIM_TITLE = "Active Simulation"
+NEW_SIM = 2108999
+P3_NAIVE_TITLE = "P3 Naive"
 
 FIXED_UUID = "12345678-1234-5678-1234-567812345678"
 
@@ -52,36 +54,73 @@ def test_loads_simulation_index_from_every_graph(simulation_mock: MagicMock):
 
     assert engine.graphs == {"P3 Naive": P3_NAIVE, "Payout": PAYOUT}
     assert engine.simulations == {
-        "Active Simulation": (ACTIVE_SIM, P3_NAIVE),
-        "Naive Run": (2108621, P3_NAIVE),
-        "Payout Run": (2108700, PAYOUT),
+        "P3 Naive": {"Active Simulation": ACTIVE_SIM, "Naive Run": 2108621},
+        "Payout": {"Payout Run": 2108700},
     }
     assert engine.running_simulations == {}
     simulation_mock.assert_not_called()
 
 
-def test_init_raises_when_simulation_does_not_exist(simulation_mock: MagicMock):
-    with pytest.raises(SimulationDoesNotExistError) as exc_info:
-        DCR_Engine(USERNAME, PASSWORD, simulation_title="Missing Simulation")
+def test_init_raises_when_graph_does_not_exist(simulation_mock: MagicMock):
+    with pytest.raises(GraphDoesNotExistError) as exc_info:
+        DCR_Engine(
+            USERNAME,
+            PASSWORD,
+            graph_title="Missing Graph",
+            simulation_title=ACTIVE_SIM_TITLE,
+        )
 
-    assert exc_info.value.simulation_title == "Missing Simulation"
+    assert exc_info.value.graph_title == "Missing Graph"
     simulation_mock.assert_not_called()
 
 
-def test_attach_raises_when_simulation_does_not_exist(
-    simulation_mock: MagicMock,
-):
+def test_attach_raises_when_graph_does_not_exist(simulation_mock: MagicMock):
     engine = DCR_Engine(USERNAME, PASSWORD)
 
-    with pytest.raises(SimulationDoesNotExistError):
-        engine.attach_new_simulation("Missing Simulation", "alice")
+    with pytest.raises(GraphDoesNotExistError):
+        engine.attach_new_simulation("Missing Graph", ACTIVE_SIM_TITLE, "alice")
 
     assert engine.running_simulations == {}
     simulation_mock.assert_not_called()
 
 
+def test_attach_creates_simulation_when_it_does_not_exist(
+    simulation_mock: MagicMock,
+):
+    simulation_mock.return_value.sim_id = NEW_SIM
+    engine = DCR_Engine(USERNAME, PASSWORD)
+
+    engine.attach_new_simulation(P3_NAIVE_TITLE, "New Simulation")
+
+    simulation_mock.assert_called_once_with(
+        P3_NAIVE, engine.account, None, "New Simulation"
+    )
+    assert engine.simulations[P3_NAIVE_TITLE]["New Simulation"] == NEW_SIM
+    assert engine.running_simulations == {
+        "New Simulation": simulation_mock.return_value
+    }
+
+
+def test_attach_does_not_match_simulation_from_another_graph(
+    simulation_mock: MagicMock,
+):
+    engine = DCR_Engine(USERNAME, PASSWORD)
+
+    engine.attach_new_simulation("Payout", ACTIVE_SIM_TITLE)
+
+    simulation_mock.assert_called_once_with(
+        PAYOUT, engine.account, None, ACTIVE_SIM_TITLE
+    )
+
+
 def test_init_attaches_simulation_under_its_title(simulation_mock: MagicMock):
-    engine = DCR_Engine(USERNAME, PASSWORD, simulation_title=ACTIVE_SIM_TITLE)
+    simulation_mock.return_value.sim_id = ACTIVE_SIM
+    engine = DCR_Engine(
+        USERNAME,
+        PASSWORD,
+        graph_title=P3_NAIVE_TITLE,
+        simulation_title=ACTIVE_SIM_TITLE,
+    )
 
     simulation_mock.assert_called_once_with(
         P3_NAIVE, engine.account, ACTIVE_SIM, ACTIVE_SIM_TITLE
@@ -94,7 +133,7 @@ def test_init_attaches_simulation_under_its_title(simulation_mock: MagicMock):
 def test_attach_uses_reference_name(simulation_mock: MagicMock):
     engine = DCR_Engine(USERNAME, PASSWORD)
 
-    engine.attach_new_simulation(ACTIVE_SIM_TITLE, "alice")
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
 
     assert engine.running_simulations == {
         "alice": simulation_mock.return_value
@@ -110,8 +149,8 @@ def test_attach_taken_reference_name_gets_uuid(
 ):
     engine = DCR_Engine(USERNAME, PASSWORD)
 
-    engine.attach_new_simulation(ACTIVE_SIM_TITLE, "alice")
-    engine.attach_new_simulation(ACTIVE_SIM_TITLE, "alice")
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
 
     assert list(engine.running_simulations) == ["alice", f"alice-{FIXED_UUID}"]
 
@@ -120,9 +159,14 @@ def test_attach_taken_reference_name_gets_uuid(
 def test_attach_without_reference_name_gets_uuid_when_title_taken(
     _: MagicMock, simulation_mock: MagicMock
 ):
-    engine = DCR_Engine(USERNAME, PASSWORD, simulation_title=ACTIVE_SIM_TITLE)
+    engine = DCR_Engine(
+        USERNAME,
+        PASSWORD,
+        graph_title=P3_NAIVE_TITLE,
+        simulation_title=ACTIVE_SIM_TITLE,
+    )
 
-    engine.attach_new_simulation(ACTIVE_SIM_TITLE)
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE)
 
     assert list(engine.running_simulations) == [
         ACTIVE_SIM_TITLE,
