@@ -65,6 +65,56 @@ class DCR_Parser:
             for trace in ET.fromstring(xml).iter("trace")
         ]
 
+    # The graph definition (GET /api/graphs/{id}) lists every event,
+    # including the nested Subprocess boxes the sim events route leaves out.
+    # It has no simulation state, so every state flag is False here.
+    @staticmethod
+    def parse_graph_events(xml: str) -> dict[str, Event]:
+        root = ET.fromstring(xml)
+        labels = {
+            mapping.get("eventId", ""): mapping.get("labelId", "")
+            for mapping in root.iter("labelMapping")
+        }
+        events: dict[str, Event] = {}
+
+        # Nesting lives in the XML tree itself, so the parent is the
+        # enclosing <event>
+        def walk(container: ET.Element, parent: str) -> None:
+            for event in container.findall("event"):
+                event_id = event.get("id", "")
+                events[event_id] = Event(
+                    id=event_id,
+                    included=False,
+                    enabled=False,
+                    pending=False,
+                    effectively_pending=False,
+                    effectively_included=False,
+                    executed=False,
+                    full_path=event_id,
+                    roles=",".join(
+                        role.text or ""
+                        for role in event.findall("custom/roles/role")
+                    ),
+                    groups="",
+                    description=event.findtext("custom/eventDescription", ""),
+                    label=labels.get(event_id, ""),
+                    event_type=event.findtext("custom/eventType", ""),
+                    phases="",
+                    deadline="",
+                    sequence=int(event.findtext("custom/sequence") or 0),
+                    parent=parent,
+                    type=event.get("type", ""),
+                    refer_id="",
+                    event_type_data=event.findtext("custom/eventTypeData", ""),
+                )
+                walk(event, event_id)
+
+        # Only walk the specification: <runtime> also has <event> tags
+        resources = root.find("specification/resources/events")
+        if resources is not None:
+            walk(resources, "")
+        return events
+
     @staticmethod
     def parse_state(xml: str) -> State:
         get = DCR_Parser._get

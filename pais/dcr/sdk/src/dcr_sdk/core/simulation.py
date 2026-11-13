@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import warnings
 from typing import cast
@@ -10,6 +11,7 @@ from dcr_sdk.core.account import Account
 from dcr_sdk.models import Event, State
 from dcr_sdk.utils.color import Color
 from dcr_sdk.utils.constants import (
+    GRAPH_URL,
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
@@ -25,6 +27,7 @@ class Simulation:
     sim_id: int
     url: str
     parser: DCR_Parser
+    structure: dict[str, Event]
     state: State
 
     def __init__(
@@ -47,6 +50,8 @@ class Simulation:
         self.sim_id = sim_id
         self.url = SIMULATION_URL.format(graph_id, sim_id)
 
+        # The graph structure never changes during a simulation, so fetch it once
+        self.structure = self._load_structure()
         self.state = self._refresh_event_state()
 
     # ===== Simulation Managment Routes =======================
@@ -80,6 +85,11 @@ class Simulation:
 
     # ===== Event Managment Routes =======================
 
+    def _load_structure(self) -> dict[str, Event]:
+        response = self.account.session.get(GRAPH_URL.format(self.graph_id))
+        response.raise_for_status()
+        return self.parser.parse_graph_events(response.text)
+
     def _refresh_event_state(self, event_filter: str = "all") -> State:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)
         response = self.account.session.get(
@@ -87,7 +97,13 @@ class Simulation:
         )
         response.raise_for_status()
         # DCR wraps the events XML in a JSON string
-        return self.parser.parse_state(cast(str, response.json()))
+        print(response.json())
+        state = self.parser.parse_state(cast(str, response.json()))
+        # Every event comes from the graph structure, in definition order.
+        # The sim state overrides the ones it knows about; the containers
+        # it leaves out (e.g. nested Subprocess boxes) keep no state.
+        events = {**self.structure, **state.events}
+        return dataclasses.replace(state, events=events)
 
     # This is a simple quality of life function
     def execute_event(self, event_id: str, role: str | None = None) -> None:
@@ -116,6 +132,8 @@ class Simulation:
 
     def _children(self, parent_id: str) -> list[Event]:
         events = self.state.events.values()
+        # for e in events:
+        #     print(f"This event is considere for a possible parent: ${e.label}")
         return [e for e in events if e.parent == parent_id]
 
     # If it has children, the program will default to subgraph
@@ -129,3 +147,5 @@ class Simulation:
         print(pad + (f"{view.label}" if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)
+        # if self._children(event.id) == []:
+        #     print(f'No Children ${event.id}')
