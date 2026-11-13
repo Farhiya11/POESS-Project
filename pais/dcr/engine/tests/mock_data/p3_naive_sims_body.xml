@@ -1,0 +1,4 @@
+<log>
+  <trace id="2108620" title="Active Simulation" init="2026-11-06T20:45:44" percentage="0.00" isScenario="false" created="2026-11-06T20:45:44.127Z" createdBy="176191" modified="2026-11-06T21:45:44.120Z" modifiedBy="176191" businessType="none" />
+  <trace id="2108621" title="Naive Run" init="2026-11-06T20:47:26" percentage="0.00" isScenario="false" created="2026-11-06T20:47:26.247Z" createdBy="176191" modified="2026-11-06T21:47:26.243Z" modifiedBy="176191" businessType="none" />
+</log>
