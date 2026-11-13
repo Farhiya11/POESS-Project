@@ -65,9 +65,6 @@ class DCR_Parser:
             for trace in ET.fromstring(xml).iter("trace")
         ]
 
-    # The graph definition (GET /api/graphs/{id}) lists every event,
-    # including the nested Subprocess boxes the sim events route leaves out.
-    # It has no simulation state, so every state flag is False here.
     @staticmethod
     def parse_graph_events(xml: str) -> dict[str, Event]:
         root = ET.fromstring(xml)
@@ -77,8 +74,6 @@ class DCR_Parser:
         }
         events: dict[str, Event] = {}
 
-        # Nesting lives in the XML tree itself, so the parent is the
-        # enclosing <event>
         def walk(container: ET.Element, parent: str) -> None:
             for event in container.findall("event"):
                 event_id = event.get("id", "")

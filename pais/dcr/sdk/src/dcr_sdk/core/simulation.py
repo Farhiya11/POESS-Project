@@ -50,8 +50,10 @@ class Simulation:
         self.sim_id = sim_id
         self.url = SIMULATION_URL.format(graph_id, sim_id)
 
-        # The graph structure never changes during a simulation, so fetch it once
+        # Structure will contain the container elements
         self.structure = self._load_structure()
+        # print(self.structure)
+        # State will contain events and the primary parents
         self.state = self._refresh_event_state()
 
     # ===== Simulation Managment Routes =======================
@@ -96,12 +98,7 @@ class Simulation:
             url, params={"filter": event_filter}
         )
         response.raise_for_status()
-        # DCR wraps the events XML in a JSON string
-        print(response.json())
         state = self.parser.parse_state(cast(str, response.json()))
-        # Every event comes from the graph structure, in definition order.
-        # The sim state overrides the ones it knows about; the containers
-        # it leaves out (e.g. nested Subprocess boxes) keep no state.
         events = {**self.structure, **state.events}
         return dataclasses.replace(state, events=events)
 
@@ -130,11 +127,14 @@ class Simulation:
         for event in self._children(""):
             self._print_event(event, zen)
 
-    def _children(self, parent_id: str) -> list[Event]:
-        events = self.state.events.values()
-        # for e in events:
-        #     print(f"This event is considere for a possible parent: ${e.label}")
-        return [e for e in events if e.parent == parent_id]
+    def _children(self,parent_id: str) -> list[Event]:
+        children = []
+        for key, e in self.structure.items():
+            if e.parent == parent_id and self.state.events.get(key):
+                children.append(self.state.events.get(key))
+            elif e.parent ==parent_id:
+                children.append(e)
+        return children
 
     # If it has children, the program will default to subgraph
     def _is_container(self, event: Event) -> bool:
@@ -147,5 +147,3 @@ class Simulation:
         print(pad + (f"{view.label}" if zen else view.details(pad)))
         for child in self._children(event.id):
             self._print_event(child, zen, depth + 1)
-        # if self._children(event.id) == []:
-        #     print(f'No Children ${event.id}')

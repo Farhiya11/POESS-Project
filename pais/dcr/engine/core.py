@@ -10,10 +10,10 @@ ACTIVE_SIM = 2108620
 def __main__():
     account = Account(os.environ["DCR_USERNAME"], os.environ["DCR_PASSWORD"])
     simulation = Simulation(P3_NAIVE, account, ACTIVE_SIM)
-    # if len(sys.argv) > 1 and sys.argv[1] == "zen":
-    #     simulation.print_events(sys.argv[1] == "zen")
-    # else:
-    #     simulation.print_events()
+    if len(sys.argv) > 1 and sys.argv[1] == "zen":
+        simulation.print_events(sys.argv[1] == "zen")
+    else:
+        simulation.print_events()
     # simulation.execute_event("A5")
 
 
