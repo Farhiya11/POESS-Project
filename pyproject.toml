@@ -20,7 +20,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["pais/dcr/sdk/tests"]
+testpaths = ["pais/dcr/sdk/tests", "pais/dcr/engine/tests"]
+pythonpath = ["."]
 
 [tool.pyright]
 venvPath = "."
