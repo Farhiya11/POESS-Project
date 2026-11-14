@@ -1,4 +1,3 @@
-
 import sys
 
 from dcr_engine import (
@@ -49,6 +48,9 @@ def __main__():
             print(f"Request Non-Conformance: {error}\n")
 
     engine.running_simulations[simulation_title].print_events(engine.zen_mode)
+
+    print("\n==== SHOW NEXT EVENTS =====\n")
+    [print(e) for e in engine.show_next_event(simulation_title)]
 
 
 if __name__ == "__main__":
