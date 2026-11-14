@@ -1,0 +1,80 @@
+<dcrgraph title="Payout">
+  <specification>
+    <resources>
+      <events>
+        <event id="FilloutExpenseReport">
+          <custom>
+            <roles><role>Employee</role></roles>
+            <eventType />
+            <eventTypeData />
+            <eventDescription>&lt;p&gt;fill out an expense report&lt;/p&gt;</eventDescription>
+            <sequence>0</sequence>
+          </custom>
+        </event>
+        <event id="Review" type="subprocess">
+          <custom>
+            <roles />
+            <eventType />
+            <eventTypeData />
+            <eventDescription />
+            <sequence>2</sequence>
+          </custom>
+          <event id="Audit" type="subprocess">
+            <custom>
+              <roles />
+              <eventType />
+              <eventTypeData />
+              <eventDescription />
+              <sequence>4</sequence>
+            </custom>
+            <event id="CheckReceipts">
+              <custom>
+                <roles><role>Auditor</role><role>Manager</role></roles>
+                <eventType />
+                <eventTypeData />
+                <eventDescription />
+                <sequence>5</sequence>
+              </custom>
+            </event>
+          </event>
+        </event>
+        <event id="Approve">
+          <custom>
+            <roles><role>Manager</role></roles>
+            <eventType />
+            <eventTypeData />
+            <eventDescription>&lt;p&gt;approves&lt;/p&gt;</eventDescription>
+            <sequence>3</sequence>
+          </custom>
+        </event>
+        <event id="Payout">
+          <custom>
+            <roles><role>Finance</role></roles>
+            <eventType />
+            <eventTypeData />
+            <eventDescription>&lt;p&gt;We pay out using our ERP system SAP.&lt;/p&gt;</eventDescription>
+            <sequence>1</sequence>
+          </custom>
+        </event>
+      </events>
+      <labelMappings>
+        <labelMapping eventId="FilloutExpenseReport" labelId="Fill out an expense report" />
+        <labelMapping eventId="Review" labelId="Review" />
+        <labelMapping eventId="Audit" labelId="Audit" />
+        <labelMapping eventId="CheckReceipts" labelId="Check receipts" />
+        <labelMapping eventId="Approve" labelId="Approve" />
+        <labelMapping eventId="Payout" labelId="Pay out" />
+      </labelMappings>
+    </resources>
+  </specification>
+  <runtime>
+    <marking>
+      <included>
+        <event id="FilloutExpenseReport" />
+      </included>
+      <pendingResponses>
+        <event id="FilloutExpenseReport" />
+      </pendingResponses>
+    </marking>
+  </runtime>
+</dcrgraph>
