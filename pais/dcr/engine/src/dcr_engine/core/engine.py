@@ -3,7 +3,11 @@ import uuid
 
 from dcr_sdk import Account, Simulation
 
-from .errors import GraphDoesNotExistError
+from .errors import (
+    EventDoesNotExistError,
+    EventNotEnabledError,
+    GraphDoesNotExistError,
+)
 
 
 class DCR_Engine:
@@ -11,9 +15,9 @@ class DCR_Engine:
     graphs: dict[str, int]
     simulations: dict[str, dict[str, int]]
     running_simulations: dict[str, Simulation]
-
-    # Configurations
     zen_mode: bool
+
+    # ====== Complex Initialization =======
 
     def __init__(
         self,
@@ -49,11 +53,8 @@ class DCR_Engine:
         if graph_title is not None and simulation_title is not None:
             self.attach_new_simulation(graph_title, simulation_title)
 
-    def _check_graph_existence(self, graph_title: str) -> None:
-        if graph_title not in self.graphs:
-            raise GraphDoesNotExistError(graph_title)
+    # ====== Actions For Standard Users =========
 
-    # Attaches the simulation of the graph, creating it if it doesn't exist
     def attach_new_simulation(
         self, graph_title: str, simulation_title: str, reference_name: str = ""
     ) -> None:
@@ -72,4 +73,27 @@ class DCR_Engine:
         self.simulations[graph_title][simulation_title] = simulation.sim_id
         self.running_simulations[name] = simulation
 
-    # Visualize Running Simulations
+    # ======= Execute Instructions and Traces =========
+
+    def execute_single_transition(self, sim_name: str, event_id: str) -> None:
+        simulation = self.running_simulations[sim_name]
+        event = simulation.state.events.get(event_id)
+        if event is None:
+            raise EventDoesNotExistError(event_id)
+        if not event.enabled:
+            raise EventNotEnabledError(event_id)
+
+        simulation.execute_event(event_id)
+
+    # Runs the events in order, stopping at the first non-conforming one
+    def execute_sequence(self, sim_name: str, sequence: list[str]) -> None:
+        for event_id in sequence:
+            self.execute_single_transition(sim_name, event_id)
+
+    # ======= Get State and Structure ============
+
+    # ====== Helper Functions For validations ==========
+
+    def _check_graph_existence(self, graph_title: str) -> None:
+        if graph_title not in self.graphs:
+            raise GraphDoesNotExistError(graph_title)

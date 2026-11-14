@@ -3,6 +3,17 @@
 # SPDX-License-Identifier: MIT
 
 from .core.engine import DCR_Engine
-from .core.errors import GraphDoesNotExistError
+from .core.errors import (
+    EventDoesNotExistError,
+    EventNotEnabledError,
+    GraphDoesNotExistError,
+    RequestNonConformanceError,
+)
 
-__all__ = ["DCR_Engine", "GraphDoesNotExistError"]
+__all__ = [
+    "DCR_Engine",
+    "EventDoesNotExistError",
+    "EventNotEnabledError",
+    "GraphDoesNotExistError",
+    "RequestNonConformanceError",
+]

@@ -1,9 +1,14 @@
 
 import sys
 
-from dcr_engine import DCR_Engine, GraphDoesNotExistError
+from dcr_engine import (
+    DCR_Engine,
+    GraphDoesNotExistError,
+    RequestNonConformanceError,
+)
 
 
+# Usage: main.py [zen] <graph_title> <simulation_title> [event_id ...]
 def __main__():
     args = sys.argv[1:]
     zen = "zen" in args
@@ -33,6 +38,15 @@ def __main__():
     for reference_name in engine.running_simulations:
         print(reference_name)
     print()
+
+    # Any extra arguments are executed in order as one sequence
+    sequence = titles[2:]
+    if sequence:
+        print(f"==== EXECUTING {' -> '.join(sequence)} =====\n")
+        try:
+            engine.execute_sequence(simulation_title, sequence)
+        except RequestNonConformanceError as error:
+            print(f"Request Non-Conformance: {error}\n")
 
     engine.running_simulations[simulation_title].print_events(engine.zen_mode)
 
