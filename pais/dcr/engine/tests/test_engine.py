@@ -156,10 +156,13 @@ def test_attach_taken_reference_name_gets_uuid(
 ):
     engine = DCR_Engine(USERNAME, PASSWORD)
 
-    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
-    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
+    first = engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
+    second = engine.attach_new_simulation(
+        P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice"
+    )
 
-    assert list(engine.running_simulations) == ["alice", f"alice-{FIXED_UUID}"]
+    assert (first, second) == ("alice", f"alice-{FIXED_UUID}")
+    assert list(engine.running_simulations) == [first, second]
 
 
 @patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)

@@ -54,13 +54,13 @@ class DCR_Engine:
 
         # If the user knows what they want to initialize
         if graph_title is not None and simulation_title is not None:
-            self.attach_new_simulation(graph_title, simulation_title)
+            _ = self.attach_new_simulation(graph_title, simulation_title)
 
     # ====== Actions For Standard Users =========
 
     def attach_new_simulation(
         self, graph_title: str, simulation_title: str, reference_name: str = ""
-    ) -> None:
+    ) -> str:
         self._check_graph_existence(graph_title)
 
         name = reference_name or simulation_title
@@ -75,6 +75,7 @@ class DCR_Engine:
         )
         self.simulations[graph_title][simulation_title] = simulation.sim_id
         self.running_simulations[name] = simulation
+        return name
 
     def kill_simulation(self, sim_name: str) -> None:
         running = self.running_simulations.get(sim_name) or raise_(

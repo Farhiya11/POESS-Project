@@ -4,6 +4,7 @@
 
 from .core.engine import DCR_Engine
 from .core.errors import (
+    DCREngineError,
     EventDoesNotExistError,
     EventNotEnabledError,
     GraphDoesNotExistError,
@@ -14,6 +15,7 @@ from .core.models import EventNode, Overview, SimulationStatus
 
 __all__ = [
     "DCR_Engine",
+    "DCREngineError",
     "EventDoesNotExistError",
     "EventNode",
     "EventNotEnabledError",
