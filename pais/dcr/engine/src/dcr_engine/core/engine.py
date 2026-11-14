@@ -10,7 +10,7 @@ from .errors import (
     SimulationNotRunningError,
     raise_,
 )
-from .models import Overview
+from .models import NextEvent, Overview
 
 
 class DCR_Engine:
@@ -97,16 +97,15 @@ class DCR_Engine:
 
     # ======= Get State and Structure ============
 
-    def show_next_event(self, sim_name: str) -> list[tuple[str, str]]:
+    def show_next_event(self, sim_name: str) -> list[NextEvent]:
         running = self.running_simulations.get(sim_name) or raise_(
             SimulationNotRunningError(sim_name)
         )
-        next_events = [
-            (e_id, e.label.strip())
-            for e_id, e in running.state.events.items()
-            if (e.enabled and e.pending)
+        return [
+            NextEvent(id=event_id, label=event.label.strip())
+            for event_id, event in running.state.events.items()
+            if event.enabled and event.pending
         ]
-        return next_events
 
     def get_overview(self) -> Overview:
         return Overview(
