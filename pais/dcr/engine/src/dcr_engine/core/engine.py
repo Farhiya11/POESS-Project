@@ -76,6 +76,22 @@ class DCR_Engine:
         self.simulations[graph_title][simulation_title] = simulation.sim_id
         self.running_simulations[name] = simulation
 
+    def kill_simulation(self, sim_name: str) -> None:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        running.kill_simulation()
+
+        self.running_simulations = {
+            name: simulation
+            for name, simulation in self.running_simulations.items()
+            if simulation.sim_id != running.sim_id
+        }
+        for simulations in self.simulations.values():
+            for title, sim_id in list(simulations.items()):
+                if sim_id == running.sim_id:
+                    del simulations[title]
+
     # ======= Execute Instructions and Traces =========
 
     def execute_single_transition(self, sim_name: str, event_id: str) -> None:

@@ -373,3 +373,34 @@ def test_show_state_only_events_leaves_out_containers(
         state["A25"],
     ]
     assert all(node.children == [] for node in nodes)
+
+
+# ====== Killing simulations =======
+
+
+@patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)
+def test_kill_simulation_removes_every_name_and_the_index_entry(
+    _: MagicMock, running: tuple[DCR_Engine, MagicMock]
+):
+    engine, simulation = running
+    # Attached a second time, so it runs under two names
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, SIM_NAME)
+
+    engine.kill_simulation(SIM_NAME)
+
+    simulation.kill_simulation.assert_called_once_with()
+    assert engine.running_simulations == {}
+    assert engine.simulations[P3_NAIVE_TITLE] == {"Naive Run": 2108621}
+
+
+def test_kill_simulation_that_is_not_running(
+    running: tuple[DCR_Engine, MagicMock],
+):
+    engine, simulation = running
+
+    with pytest.raises(SimulationNotRunningError):
+        engine.kill_simulation("bob")
+
+    simulation.kill_simulation.assert_not_called()
+    assert SIM_NAME in engine.running_simulations
+
