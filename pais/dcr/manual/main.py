@@ -56,7 +56,8 @@ def __main__():
     engine.running_simulations[simulation_title].print_events(engine.zen_mode)
 
     print("\n==== SHOW NEXT EVENTS =====\n")
-    [print(e) for e in engine.show_next_event(simulation_title)]
+    for event in engine.show_next_event(simulation_title):
+        print(event.id, event.label)
 
 
 if __name__ == "__main__":

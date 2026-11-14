@@ -10,6 +10,7 @@ from dcr_engine import (
     EventDoesNotExistError,
     EventNotEnabledError,
     GraphDoesNotExistError,
+    NextEvent,
     Overview,
     RequestNonConformanceError,
     SimulationNotRunningError,
@@ -309,3 +310,17 @@ def test_overview(
         simulations=engine.simulations,
         running={SIM_NAME: status},
     )
+
+
+def test_show_next_event_only_returns_enabled_and_pending(
+    running: tuple[DCR_Engine, MagicMock],
+):
+    engine, simulation = running
+    simulation.state.events = {
+        "A3": SimpleNamespace(enabled=True, pending=True, label=" Hits "),
+        "A4": SimpleNamespace(enabled=False, pending=True, label="Peak"),
+        "A5": SimpleNamespace(enabled=True, pending=False, label="Council"),
+    }
+
+    assert engine.show_next_event(SIM_NAME) == [NextEvent("A3", "Hits")]
+
