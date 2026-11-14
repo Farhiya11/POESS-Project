@@ -10,14 +10,14 @@ from .core.errors import (
     RequestNonConformanceError,
     SimulationNotRunningError,
 )
-from .core.models import NextEvent, Overview, SimulationStatus
+from .core.models import EventNode, Overview, SimulationStatus
 
 __all__ = [
     "DCR_Engine",
     "EventDoesNotExistError",
+    "EventNode",
     "EventNotEnabledError",
     "GraphDoesNotExistError",
-    "NextEvent",
     "Overview",
     "RequestNonConformanceError",
     "SimulationNotRunningError",

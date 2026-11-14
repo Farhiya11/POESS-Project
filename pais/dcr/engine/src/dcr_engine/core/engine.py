@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from dcr_sdk import Account, Simulation
+from dcr_sdk import Account, Event, Simulation
 
 from .errors import (
     EventDoesNotExistError,
@@ -10,7 +10,7 @@ from .errors import (
     SimulationNotRunningError,
     raise_,
 )
-from .models import NextEvent, Overview
+from .models import EventNode, Overview
 
 
 class DCR_Engine:
@@ -97,13 +97,13 @@ class DCR_Engine:
 
     # ======= Get State and Structure ============
 
-    def show_next_event(self, sim_name: str) -> list[NextEvent]:
+    def show_next_event(self, sim_name: str) -> list[Event]:
         running = self.running_simulations.get(sim_name) or raise_(
             SimulationNotRunningError(sim_name)
         )
         return [
-            NextEvent(id=event_id, label=event.label.strip())
-            for event_id, event in running.state.events.items()
+            event
+            for event in running.state.events.values()
             if event.enabled and event.pending
         ]
 
@@ -122,6 +122,31 @@ class DCR_Engine:
     def _check_graph_existence(self, graph_title: str) -> None:
         if graph_title not in self.graphs:
             raise GraphDoesNotExistError(graph_title)
+
+    def show_state(
+        self, sim_name: str, only_events: bool = False
+    ) -> list[EventNode]:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        children: dict[str, list[Event]] = {}
+        for event in running.state.events.values():
+            children.setdefault(event.parent, []).append(event)
+
+        if only_events:
+            return [
+                EventNode(event, [])
+                for event in running.state.events.values()
+                if event.id not in children
+                and event.type.lower() != "subprocess"
+            ]
+
+        def node(event: Event) -> EventNode:
+            return EventNode(
+                event, [node(child) for child in children.get(event.id, [])]
+            )
+
+        return [node(event) for event in children.get("", [])]
 
     def is_finished(self, sim_name: str) -> bool:
         running = self.running_simulations.get(sim_name) or raise_(

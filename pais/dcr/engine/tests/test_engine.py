@@ -8,9 +8,9 @@ import requests
 from dcr_engine import (
     DCR_Engine,
     EventDoesNotExistError,
+    EventNode,
     EventNotEnabledError,
     GraphDoesNotExistError,
-    NextEvent,
     Overview,
     RequestNonConformanceError,
     SimulationNotRunningError,
@@ -322,5 +322,54 @@ def test_show_next_event_only_returns_enabled_and_pending(
         "A5": SimpleNamespace(enabled=True, pending=False, label="Council"),
     }
 
-    assert engine.show_next_event(SIM_NAME) == [NextEvent("A3", "Hits")]
+    assert engine.show_next_event(SIM_NAME) == [simulation.state.events["A3"]]
 
+
+def state_event(id: str, parent: str = "", type: str = "") -> SimpleNamespace:
+    return SimpleNamespace(id=id, parent=parent, type=type)
+
+
+# A1 and A8 are containers, A8 sits inside A1
+@pytest.fixture
+def state(running: tuple[DCR_Engine, MagicMock]) -> dict[str, SimpleNamespace]:
+    _, simulation = running
+    simulation.state.events = {
+        "A1": state_event("A1"),
+        "A3": state_event("A3", parent="A1"),
+        "A8": state_event("A8", parent="A1"),
+        "A9": state_event("A9", parent="A8"),
+        "A25": state_event("A25"),
+        # A container DCR sent without any events inside it
+        "A30": state_event("A30", type="Subprocess"),
+    }
+    return simulation.state.events
+
+
+def test_show_state_nests_events_inside_their_containers(
+    running: tuple[DCR_Engine, MagicMock], state: dict[str, SimpleNamespace]
+):
+    engine, _ = running
+
+    def node(id: str, *children: EventNode) -> EventNode:
+        return EventNode(state[id], list(children))  # type: ignore[arg-type]
+
+    assert engine.show_state(SIM_NAME) == [
+        node("A1", node("A3"), node("A8", node("A9"))),
+        node("A25"),
+        node("A30"),
+    ]
+
+
+def test_show_state_only_events_leaves_out_containers(
+    running: tuple[DCR_Engine, MagicMock], state: dict[str, SimpleNamespace]
+):
+    engine, _ = running
+
+    nodes = engine.show_state(SIM_NAME, only_events=True)
+
+    assert [node.event for node in nodes] == [
+        state["A3"],
+        state["A9"],
+        state["A25"],
+    ]
+    assert all(node.children == [] for node in nodes)
