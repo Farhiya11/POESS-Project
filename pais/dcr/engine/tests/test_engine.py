@@ -3,9 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from pais.dcr.engine.core import DCR_Engine
-from pais.dcr.engine.errors import GraphDoesNotExistError
 
+from dcr_engine import DCR_Engine, GraphDoesNotExistError
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, GRAPH_SIMS_URL
 
 MOCK_DATA = Path(__file__).parent / "mock_data"
@@ -44,7 +43,7 @@ def dcr_responses(method: str, url: str, *args: object, **kwargs: object):
 def simulation_mock():
     with (
         patch.object(requests.Session, "request", side_effect=dcr_responses),
-        patch("pais.dcr.engine.core.Simulation") as mock_simulation,
+        patch("dcr_engine.core.engine.Simulation") as mock_simulation,
     ):
         yield mock_simulation
 
@@ -135,15 +134,13 @@ def test_attach_uses_reference_name(simulation_mock: MagicMock):
 
     engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
 
-    assert engine.running_simulations == {
-        "alice": simulation_mock.return_value
-    }
+    assert engine.running_simulations == {"alice": simulation_mock.return_value}
     simulation_mock.assert_called_once_with(
         P3_NAIVE, engine.account, ACTIVE_SIM, ACTIVE_SIM_TITLE
     )
 
 
-@patch("pais.dcr.engine.core.uuid.uuid4", return_value=FIXED_UUID)
+@patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)
 def test_attach_taken_reference_name_gets_uuid(
     _: MagicMock, simulation_mock: MagicMock
 ):
@@ -155,7 +152,7 @@ def test_attach_taken_reference_name_gets_uuid(
     assert list(engine.running_simulations) == ["alice", f"alice-{FIXED_UUID}"]
 
 
-@patch("pais.dcr.engine.core.uuid.uuid4", return_value=FIXED_UUID)
+@patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)
 def test_attach_without_reference_name_gets_uuid_when_title_taken(
     _: MagicMock, simulation_mock: MagicMock
 ):
