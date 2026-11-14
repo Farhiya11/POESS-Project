@@ -11,6 +11,7 @@ from dcr_engine import (
     EventNotEnabledError,
     GraphDoesNotExistError,
     RequestNonConformanceError,
+    SimulationNotRunningError,
 )
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, GRAPH_SIMS_URL
 
@@ -248,3 +249,15 @@ def test_execute_sequence_stops_at_non_conforming_event(
         engine.execute_sequence(SIM_NAME, ["A3", "A99", "A4"])
 
     simulation.execute_event.assert_called_once_with("A3")
+
+
+def test_execute_on_simulation_that_is_not_running(
+    running: tuple[DCR_Engine, MagicMock],
+):
+    engine, simulation = running
+
+    with pytest.raises(SimulationNotRunningError) as exc_info:
+        engine.execute_single_transition("bob", "A3")
+
+    assert exc_info.value.sim_name == "bob"
+    simulation.execute_event.assert_not_called()

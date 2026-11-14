@@ -1,3 +1,4 @@
+from gc import enable
 import os
 import uuid
 
@@ -7,6 +8,8 @@ from .errors import (
     EventDoesNotExistError,
     EventNotEnabledError,
     GraphDoesNotExistError,
+    SimulationNotRunningError,
+    raise_,
 )
 
 
@@ -76,7 +79,9 @@ class DCR_Engine:
     # ======= Execute Instructions and Traces =========
 
     def execute_single_transition(self, sim_name: str, event_id: str) -> None:
-        simulation = self.running_simulations[sim_name]
+        simulation = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
         event = simulation.state.events.get(event_id)
         if event is None:
             raise EventDoesNotExistError(event_id)
@@ -91,6 +96,16 @@ class DCR_Engine:
             self.execute_single_transition(sim_name, event_id)
 
     # ======= Get State and Structure ============
+    
+    # Next events is a keyword for enabled and pending
+    def show_next_event(self, sim_name: str) -> list[tuple[str,str]]:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        next_events = [(e_id,e.label.strip()) for e_id, e in running.state.events.items() if (e.enabled and e.pending)]
+        return next_events
+        
+        
 
     # ====== Helper Functions For validations ==========
 

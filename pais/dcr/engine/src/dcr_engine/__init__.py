@@ -8,6 +8,7 @@ from .core.errors import (
     EventNotEnabledError,
     GraphDoesNotExistError,
     RequestNonConformanceError,
+    SimulationNotRunningError,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "EventNotEnabledError",
     "GraphDoesNotExistError",
     "RequestNonConformanceError",
+    "SimulationNotRunningError",
 ]
