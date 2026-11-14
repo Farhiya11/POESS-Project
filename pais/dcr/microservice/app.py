@@ -4,7 +4,6 @@ from functools import cache
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from dcr_engine import (
     DCR_Engine,
@@ -13,6 +12,7 @@ from dcr_engine import (
     GraphDoesNotExistError,
     SimulationNotRunningError,
 )
+from models import AttachRequest, AttachResponse, GraphSummary
 
 
 # One engine per process, shared by every request
@@ -31,7 +31,6 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(title="DCR Microservice", lifespan=lifespan)
 
 
-# Missing graphs and simulations are 404, any other non-conformance is 409
 @app.exception_handler(DCREngineError)
 def engine_error(_: Request, error: DCREngineError) -> JSONResponse:
     not_found = (GraphDoesNotExistError, SimulationNotRunningError)
@@ -39,14 +38,14 @@ def engine_error(_: Request, error: DCREngineError) -> JSONResponse:
     return JSONResponse(status_code=status, content={"detail": str(error)})
 
 
-class AttachRequest(BaseModel):
-    graph_title: str
-    simulation_title: str
-    reference_name: str = ""
-
-
-class AttachResponse(BaseModel):
-    name: str
+@app.get("/graphs")
+def list_graphs() -> dict[str, GraphSummary]:
+    graphs = engine().graphs
+    simulations = engine().simulations
+    return {
+        title: GraphSummary(id=graph_id, simulations=simulations[title])
+        for title, graph_id in graphs.items()
+    }
 
 
 # Resumes the simulation with that title, or creates it if it doesn't exist
