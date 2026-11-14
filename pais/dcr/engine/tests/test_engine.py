@@ -1,10 +1,17 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
 
-from dcr_engine import DCR_Engine, GraphDoesNotExistError
+from dcr_engine import (
+    DCR_Engine,
+    EventDoesNotExistError,
+    EventNotEnabledError,
+    GraphDoesNotExistError,
+    RequestNonConformanceError,
+)
 from dcr_sdk.utils.constants import ACCOUNT_GRAPHS_URL, GRAPH_SIMS_URL
 
 MOCK_DATA = Path(__file__).parent / "mock_data"
@@ -169,3 +176,75 @@ def test_attach_without_reference_name_gets_uuid_when_title_taken(
         ACTIVE_SIM_TITLE,
         f"{ACTIVE_SIM_TITLE}-{FIXED_UUID}",
     ]
+
+
+
+# ====== Executing transitions =======
+
+SIM_NAME = "alice"
+
+
+# A3 is enabled, A4 only becomes enabled once A3 has run
+@pytest.fixture
+def running(simulation_mock: MagicMock):
+    engine = DCR_Engine(USERNAME, PASSWORD)
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, SIM_NAME)
+
+    events = {
+        "A3": SimpleNamespace(enabled=True),
+        "A4": SimpleNamespace(enabled=False),
+    }
+    simulation = simulation_mock.return_value
+    simulation.state.events = events
+    simulation.execute_event.side_effect = lambda event_id: events.update(
+        {"A4": SimpleNamespace(enabled=True)} if event_id == "A3" else {}
+    )
+    return engine, simulation
+
+
+def test_execute_single_transition(running: tuple[DCR_Engine, MagicMock]):
+    engine, simulation = running
+
+    engine.execute_single_transition(SIM_NAME, "A3")
+
+    simulation.execute_event.assert_called_once_with("A3")
+
+
+@pytest.mark.parametrize(
+    ("event_id", "error"),
+    [
+        ("A99", EventDoesNotExistError),
+        ("A4", EventNotEnabledError),
+    ],
+)
+def test_execute_single_transition_non_conformance(
+    running: tuple[DCR_Engine, MagicMock],
+    event_id: str,
+    error: type[RequestNonConformanceError],
+):
+    engine, simulation = running
+
+    with pytest.raises(error):
+        engine.execute_single_transition(SIM_NAME, event_id)
+
+    simulation.execute_event.assert_not_called()
+
+
+def test_execute_sequence_runs_in_order(running: tuple[DCR_Engine, MagicMock]):
+    engine, simulation = running
+
+    engine.execute_sequence(SIM_NAME, ["A3", "A4"])
+
+    assert simulation.execute_event.call_args_list == [call("A3"), call("A4")]
+
+
+
+def test_execute_sequence_stops_at_non_conforming_event(
+    running: tuple[DCR_Engine, MagicMock],
+):
+    engine, simulation = running
+
+    with pytest.raises(EventDoesNotExistError):
+        engine.execute_sequence(SIM_NAME, ["A3", "A99", "A4"])
+
+    simulation.execute_event.assert_called_once_with("A3")
