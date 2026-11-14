@@ -10,6 +10,7 @@ from dcr_engine import (
     EventDoesNotExistError,
     EventNotEnabledError,
     GraphDoesNotExistError,
+    Overview,
     RequestNonConformanceError,
     SimulationNotRunningError,
 )
@@ -188,6 +189,7 @@ SIM_NAME = "alice"
 # A3 is enabled, A4 only becomes enabled once A3 has run
 @pytest.fixture
 def running(simulation_mock: MagicMock):
+    simulation_mock.return_value.sim_id = ACTIVE_SIM
     engine = DCR_Engine(USERNAME, PASSWORD)
     engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, SIM_NAME)
 
@@ -261,3 +263,49 @@ def test_execute_on_simulation_that_is_not_running(
 
     assert exc_info.value.sim_name == "bob"
     simulation.execute_event.assert_not_called()
+
+
+# ====== Finished and overview =======
+
+
+def pending(included: bool) -> SimpleNamespace:
+    return SimpleNamespace(pending=True, effectively_included=included)
+
+
+@pytest.mark.parametrize(
+    ("events", "finished"),
+    [
+        ({}, True),
+        ({"A3": pending(included=True)}, False),
+        # Pending but inside an excluded box, nothing left to do
+        ({"A9": pending(included=False)}, True),
+    ],
+)
+def test_is_finished(
+    running: tuple[DCR_Engine, MagicMock],
+    events: dict[str, SimpleNamespace],
+    finished: bool,
+):
+    engine, simulation = running
+    simulation.state.events = events
+
+    assert engine.is_finished(SIM_NAME) is finished
+
+
+@pytest.mark.parametrize(
+    ("events", "status"),
+    [({"A3": pending(included=True)}, "running"), ({}, "finished")],
+)
+def test_overview(
+    running: tuple[DCR_Engine, MagicMock],
+    events: dict[str, SimpleNamespace],
+    status: str,
+):
+    engine, simulation = running
+    simulation.state.events = events
+
+    assert engine.get_overview() == Overview(
+        graphs=engine.graphs,
+        simulations=engine.simulations,
+        running={SIM_NAME: status},
+    )

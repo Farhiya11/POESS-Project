@@ -1,4 +1,3 @@
-from gc import enable
 import os
 import uuid
 
@@ -11,6 +10,7 @@ from .errors import (
     SimulationNotRunningError,
     raise_,
 )
+from .models import Overview
 
 
 class DCR_Engine:
@@ -96,19 +96,39 @@ class DCR_Engine:
             self.execute_single_transition(sim_name, event_id)
 
     # ======= Get State and Structure ============
-    
-    # Next events is a keyword for enabled and pending
-    def show_next_event(self, sim_name: str) -> list[tuple[str,str]]:
+
+    def show_next_event(self, sim_name: str) -> list[tuple[str, str]]:
         running = self.running_simulations.get(sim_name) or raise_(
             SimulationNotRunningError(sim_name)
         )
-        next_events = [(e_id,e.label.strip()) for e_id, e in running.state.events.items() if (e.enabled and e.pending)]
+        next_events = [
+            (e_id, e.label.strip())
+            for e_id, e in running.state.events.items()
+            if (e.enabled and e.pending)
+        ]
         return next_events
-        
-        
+
+    def get_overview(self) -> Overview:
+        return Overview(
+            graphs=self.graphs,
+            simulations=self.simulations,
+            running={
+                name: "finished" if self.is_finished(name) else "running"
+                for name in self.running_simulations
+            },
+        )
 
     # ====== Helper Functions For validations ==========
 
     def _check_graph_existence(self, graph_title: str) -> None:
         if graph_title not in self.graphs:
             raise GraphDoesNotExistError(graph_title)
+
+    def is_finished(self, sim_name: str) -> bool:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        return not any(
+            event.pending and event.effectively_included
+            for event in running.state.events.values()
+        )
