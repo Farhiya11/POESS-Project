@@ -7,6 +7,19 @@ from dcr_engine import (
 )
 
 
+def print_overview(engine: DCR_Engine) -> None:
+    overview = engine.get_overview()
+    print("\n==== GRAPHS =====\n")
+    for graph_title, simulations in overview.simulations.items():
+        print(graph_title, overview.graphs[graph_title])
+        for sim_title, sim_id in simulations.items():
+            print("   ", sim_title, sim_id)
+    print("\n==== RUNNING =====\n")
+    for name, status in overview.running.items():
+        print(name, status)
+    print()
+
+
 # Usage: main.py [zen] <graph_title> <simulation_title> [event_id ...]
 def __main__():
     args = sys.argv[1:]
@@ -15,10 +28,7 @@ def __main__():
 
     engine = DCR_Engine(zen_mode=zen)
 
-    print("\n==== SIMULATIONS =====\n")
-    for graph_title, simulations in engine.simulations.items():
-        for title, sim_id in simulations.items():
-            print(engine.graphs[graph_title], sim_id, graph_title, "/", title)
+    print_overview(engine)
 
     if len(titles) < 2:
         return
@@ -33,11 +43,6 @@ def __main__():
     # Same default name again, so the engine attaches a uuid to it
     engine.attach_new_simulation(graph_title, simulation_title)
 
-    print("\n==== RUNNING SIMULATIONS =====\n")
-    for reference_name in engine.running_simulations:
-        print(reference_name)
-    print()
-
     # Any extra arguments are executed in order as one sequence
     sequence = titles[2:]
     if sequence:
@@ -47,6 +52,7 @@ def __main__():
         except RequestNonConformanceError as error:
             print(f"Request Non-Conformance: {error}\n")
 
+    print_overview(engine)
     engine.running_simulations[simulation_title].print_events(engine.zen_mode)
 
     print("\n==== SHOW NEXT EVENTS =====\n")
