@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from pais.dcr.microservice.models.simulations import (
     ExecuteEventRequest,
     ExecuteEventResponse,
+    SimulationStatusResponse,
 )
 
 from dcr_engine import (
@@ -15,6 +16,7 @@ from dcr_engine import (
     EventDoesNotExistError,
     EventNode,
     GraphDoesNotExistError,
+    SimulationStatus,
     SimulationNotRunningError,
 )
 from models import AttachRequest, AttachResponse, GraphSummary
@@ -93,6 +95,19 @@ def attach_simulation(body: AttachRequest) -> AttachResponse:
 # ---- GET ROUTES ----
 
 
+@app.get("/simulations")
+def list_simulations() -> dict[str, SimulationStatus]:
+    return engine().get_overview().running
+
+
+@app.get("/simulations/{sim_name}")
+def simulation_status(sim_name: str) -> SimulationStatusResponse:
+    finished = engine().is_finished(sim_name)
+    return SimulationStatusResponse(
+        name=sim_name, status="finished" if finished else "running"
+    )
+
+
 @app.get("/simulations/{sim_name}/state")
 def simulation_state(
     sim_name: str, only_events: bool = False
@@ -115,7 +130,7 @@ def kill_simulation(sim_name: str) -> None:
 # ---- POST ROUTES ----
 
 
-@app.post("/simulation/{sim_name}/events")
+@app.post("/simulations/{sim_name}/events")
 def execute_event(
     sim_name: str, body: ExecuteEventRequest
 ) -> ExecuteEventResponse:
@@ -141,6 +156,14 @@ def execute_event(
 # ---- GET ROUTES ----
 
 
-@app.get("/simulation/{sim_name}/events")
+@app.get("/simulations/{sim_name}/events")
 def events(sim_name: str) -> list[EventNode]:
     return engine().show_state(sim_name, True)
+
+
+# Events that are both enabled and pending, i.e. still required to finish
+@app.get("/simulations/{sim_name}/events/pending")
+def pending_events(sim_name: str) -> list[EventNode]:
+    return [
+        EventNode(event, []) for event in engine().show_next_event(sim_name)
+    ]

@@ -1,3 +1,4 @@
+from dcr_engine import SimulationStatus
 from pydantic import BaseModel, Field
 
 # ======================================================================
@@ -26,3 +27,8 @@ class AttachResponse(BaseModel):
 
 class ExecuteEventResponse(BaseModel):
     events: str
+
+
+class SimulationStatusResponse(BaseModel):
+    name: str
+    status: SimulationStatus
