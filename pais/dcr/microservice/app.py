@@ -119,8 +119,6 @@ def kill_simulation(sim_name: str) -> None:
 def execute_event(
     sim_name: str, body: ExecuteEventRequest
 ) -> ExecuteEventResponse:
-    # Executed one by one so a failure can report how far the sequence got,
-    # since the events that already ran are not rolled back.
     executed: list[str] = []
     for event_id in body.event_ids:
         try:
