@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import cache
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pais.dcr.microservice.models.simulations import (
     ExecuteEventRequest,
@@ -12,6 +12,7 @@ from pais.dcr.microservice.models.simulations import (
 from dcr_engine import (
     DCR_Engine,
     DCREngineError,
+    EventDoesNotExistError,
     EventNode,
     GraphDoesNotExistError,
     SimulationNotRunningError,
@@ -43,11 +44,20 @@ app = FastAPI(title="DCR Microservice", lifespan=lifespan)
 # ======================================================================
 
 
+def status_for(error: DCREngineError) -> int:
+    not_found = (
+        GraphDoesNotExistError,
+        SimulationNotRunningError,
+        EventDoesNotExistError,
+    )
+    return 404 if isinstance(error, not_found) else 409
+
+
 @app.exception_handler(DCREngineError)
 async def engine_error(_: Request, error: DCREngineError) -> JSONResponse:
-    not_found = (GraphDoesNotExistError, SimulationNotRunningError)
-    status = 404 if isinstance(error, not_found) else 409
-    return JSONResponse(status_code=status, content={"detail": str(error)})
+    return JSONResponse(
+        status_code=status_for(error), content={"detail": str(error)}
+    )
 
 
 # ======================================================================
@@ -109,7 +119,22 @@ def kill_simulation(sim_name: str) -> None:
 def execute_event(
     sim_name: str, body: ExecuteEventRequest
 ) -> ExecuteEventResponse:
-    engine().execute_sequence(sim_name=sim_name, sequence=body.event_ids)
+    # Executed one by one so a failure can report how far the sequence got,
+    # since the events that already ran are not rolled back.
+    executed: list[str] = []
+    for event_id in body.event_ids:
+        try:
+            engine().execute_single_transition(sim_name, event_id)
+        except DCREngineError as error:
+            raise HTTPException(
+                status_code=status_for(error),
+                detail={
+                    "message": str(error),
+                    "executed": executed,
+                    "failed_at": event_id,
+                },
+            ) from error
+        executed.append(event_id)
     return ExecuteEventResponse(
         events=f"Executed successfully: [{', '.join(body.event_ids)}]"
     )

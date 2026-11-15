@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ======================================================================
 # REQUESTS MODELS
@@ -12,7 +12,7 @@ class AttachRequest(BaseModel):
 
 
 class ExecuteEventRequest(BaseModel):
-    event_ids: list[str] = []
+    event_ids: list[str] = Field(min_length=1)
 
 
 # ======================================================================
