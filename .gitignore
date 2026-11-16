@@ -1,6 +1,7 @@
 *.env
 
 # python stuff
+.venv/
 venv/
 __pycache__/
 
