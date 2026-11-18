@@ -57,7 +57,7 @@ def __main__():
 
     print("\n==== SHOW NEXT EVENTS =====\n")
     for event in engine.show_next_event(simulation_title):
-        print(event.id, event.label)
+        print(event.id, event.label.strip())
 
 
 if __name__ == "__main__":

@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir /opt/dcr-sdk /opt/dcr-engine -r requirements.txt
 
 COPY . .
 
-CMD ["python", "-u", "app.py"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5001"]

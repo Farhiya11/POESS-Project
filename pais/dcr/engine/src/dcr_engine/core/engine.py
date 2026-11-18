@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from dcr_sdk import Account, Simulation
+from dcr_sdk import Account, Event, Simulation
 
 from .errors import (
     EventDoesNotExistError,
@@ -10,7 +10,7 @@ from .errors import (
     SimulationNotRunningError,
     raise_,
 )
-from .models import NextEvent, Overview
+from .models import EventNode, Overview
 
 
 class DCR_Engine:
@@ -54,13 +54,13 @@ class DCR_Engine:
 
         # If the user knows what they want to initialize
         if graph_title is not None and simulation_title is not None:
-            self.attach_new_simulation(graph_title, simulation_title)
+            _ = self.attach_new_simulation(graph_title, simulation_title)
 
     # ====== Actions For Standard Users =========
 
     def attach_new_simulation(
         self, graph_title: str, simulation_title: str, reference_name: str = ""
-    ) -> None:
+    ) -> str:
         self._check_graph_existence(graph_title)
 
         name = reference_name or simulation_title
@@ -75,6 +75,23 @@ class DCR_Engine:
         )
         self.simulations[graph_title][simulation_title] = simulation.sim_id
         self.running_simulations[name] = simulation
+        return name
+
+    def kill_simulation(self, sim_name: str) -> None:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        running.kill_simulation()
+
+        self.running_simulations = {
+            name: simulation
+            for name, simulation in self.running_simulations.items()
+            if simulation.sim_id != running.sim_id
+        }
+        for simulations in self.simulations.values():
+            for title, sim_id in list(simulations.items()):
+                if sim_id == running.sim_id:
+                    del simulations[title]
 
     # ======= Execute Instructions and Traces =========
 
@@ -97,13 +114,13 @@ class DCR_Engine:
 
     # ======= Get State and Structure ============
 
-    def show_next_event(self, sim_name: str) -> list[NextEvent]:
+    def show_next_event(self, sim_name: str) -> list[Event]:
         running = self.running_simulations.get(sim_name) or raise_(
             SimulationNotRunningError(sim_name)
         )
         return [
-            NextEvent(id=event_id, label=event.label.strip())
-            for event_id, event in running.state.events.items()
+            event
+            for event in running.state.events.values()
             if event.enabled and event.pending
         ]
 
@@ -122,6 +139,31 @@ class DCR_Engine:
     def _check_graph_existence(self, graph_title: str) -> None:
         if graph_title not in self.graphs:
             raise GraphDoesNotExistError(graph_title)
+
+    def show_state(
+        self, sim_name: str, only_events: bool = False
+    ) -> list[EventNode]:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        children: dict[str, list[Event]] = {}
+        for event in running.state.events.values():
+            children.setdefault(event.parent, []).append(event)
+
+        if only_events:
+            return [
+                EventNode(event, [])
+                for event in running.state.events.values()
+                if event.id not in children
+                and event.type.lower() != "subprocess"
+            ]
+
+        def node(event: Event) -> EventNode:
+            return EventNode(
+                event, [node(child) for child in children.get(event.id, [])]
+            )
+
+        return [node(event) for event in children.get("", [])]
 
     def is_finished(self, sim_name: str) -> bool:
         running = self.running_simulations.get(sim_name) or raise_(

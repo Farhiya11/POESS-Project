@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from dcr_sdk import Event
+
 SimulationStatus = Literal["running", "finished"]
 
 
@@ -13,8 +15,8 @@ class Overview:
     running: dict[str, SimulationStatus]
 
 
-# An event that is enabled and pending, so it can and should be executed
+# A DCR event, containers (subgraphs) hold the events inside them
 @dataclass(frozen=True)
-class NextEvent:
-    id: str
-    label: str
+class EventNode:
+    event: Event
+    children: list[EventNode]

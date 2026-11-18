@@ -8,9 +8,9 @@ import requests
 from dcr_engine import (
     DCR_Engine,
     EventDoesNotExistError,
+    EventNode,
     EventNotEnabledError,
     GraphDoesNotExistError,
-    NextEvent,
     Overview,
     RequestNonConformanceError,
     SimulationNotRunningError,
@@ -156,10 +156,13 @@ def test_attach_taken_reference_name_gets_uuid(
 ):
     engine = DCR_Engine(USERNAME, PASSWORD)
 
-    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
-    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
+    first = engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice")
+    second = engine.attach_new_simulation(
+        P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, "alice"
+    )
 
-    assert list(engine.running_simulations) == ["alice", f"alice-{FIXED_UUID}"]
+    assert (first, second) == ("alice", f"alice-{FIXED_UUID}")
+    assert list(engine.running_simulations) == [first, second]
 
 
 @patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)
@@ -322,5 +325,85 @@ def test_show_next_event_only_returns_enabled_and_pending(
         "A5": SimpleNamespace(enabled=True, pending=False, label="Council"),
     }
 
-    assert engine.show_next_event(SIM_NAME) == [NextEvent("A3", "Hits")]
+    assert engine.show_next_event(SIM_NAME) == [simulation.state.events["A3"]]
+
+
+def state_event(id: str, parent: str = "", type: str = "") -> SimpleNamespace:
+    return SimpleNamespace(id=id, parent=parent, type=type)
+
+
+# A1 and A8 are containers, A8 sits inside A1
+@pytest.fixture
+def state(running: tuple[DCR_Engine, MagicMock]) -> dict[str, SimpleNamespace]:
+    _, simulation = running
+    simulation.state.events = {
+        "A1": state_event("A1"),
+        "A3": state_event("A3", parent="A1"),
+        "A8": state_event("A8", parent="A1"),
+        "A9": state_event("A9", parent="A8"),
+        "A25": state_event("A25"),
+        # A container DCR sent without any events inside it
+        "A30": state_event("A30", type="Subprocess"),
+    }
+    return simulation.state.events
+
+
+def test_show_state_nests_events_inside_their_containers(
+    running: tuple[DCR_Engine, MagicMock], state: dict[str, SimpleNamespace]
+):
+    engine, _ = running
+
+    def node(id: str, *children: EventNode) -> EventNode:
+        return EventNode(state[id], list(children))  # type: ignore[arg-type]
+
+    assert engine.show_state(SIM_NAME) == [
+        node("A1", node("A3"), node("A8", node("A9"))),
+        node("A25"),
+        node("A30"),
+    ]
+
+
+def test_show_state_only_events_leaves_out_containers(
+    running: tuple[DCR_Engine, MagicMock], state: dict[str, SimpleNamespace]
+):
+    engine, _ = running
+
+    nodes = engine.show_state(SIM_NAME, only_events=True)
+
+    assert [node.event for node in nodes] == [
+        state["A3"],
+        state["A9"],
+        state["A25"],
+    ]
+    assert all(node.children == [] for node in nodes)
+
+
+# ====== Killing simulations =======
+
+
+@patch("dcr_engine.core.engine.uuid.uuid4", return_value=FIXED_UUID)
+def test_kill_simulation_removes_every_name_and_the_index_entry(
+    _: MagicMock, running: tuple[DCR_Engine, MagicMock]
+):
+    engine, simulation = running
+    # Attached a second time, so it runs under two names
+    engine.attach_new_simulation(P3_NAIVE_TITLE, ACTIVE_SIM_TITLE, SIM_NAME)
+
+    engine.kill_simulation(SIM_NAME)
+
+    simulation.kill_simulation.assert_called_once_with()
+    assert engine.running_simulations == {}
+    assert engine.simulations[P3_NAIVE_TITLE] == {"Naive Run": 2108621}
+
+
+def test_kill_simulation_that_is_not_running(
+    running: tuple[DCR_Engine, MagicMock],
+):
+    engine, simulation = running
+
+    with pytest.raises(SimulationNotRunningError):
+        engine.kill_simulation("bob")
+
+    simulation.kill_simulation.assert_not_called()
+    assert SIM_NAME in engine.running_simulations
 
