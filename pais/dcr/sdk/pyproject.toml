@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dcr-sdk"
+version = "0.0.1"
+description = 'DCR Graph SDK for mental stability, thanks'
+requires-python = ">=3.10"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Alejandro Garcia", email = "alga@gripgrab.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "requests>=2.32.4",
+]
+
+[project.urls]
+Documentation = "https://github.com/Farhiya11/POESS-Project#readme"
+Issues = "https://github.com/Farhiya11/POESS-Project/issues"
+Source = "https://github.com/Farhiya11/POESS-Project/tree/main/pais/dcr/sdk"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/dcr_sdk tests}"
+
+[tool.coverage.run]
+source_pkgs = ["dcr_sdk", "tests", "manual"]
+branch = true
+parallel = true
+
+[tool.coverage.paths]
+dcr_sdk = ["src/dcr_sdk", "*/dcr-sdk/src/dcr_sdk"]
+tests = ["tests", "*/dcr-sdk/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
