@@ -102,13 +102,17 @@ class Simulation:
         events = {**self.structure, **state.events}
         return dataclasses.replace(state, events=events)
 
-    # This is a simple quality of life function
-    def execute_event(self, event_id: str, role: str | None = None) -> None:
+    # An event can only be executed if it exists and is enabled
+    def _check_event_executable(self, event_id: str) -> None:
         event = self.state.events.get(event_id)
         if event is None:
             raise ValueError(f"Event {event_id!r} does not exist")
         if not event.enabled:
             raise ValueError(f"Event {event_id!r} is not enabled")
+
+    # This is a simple quality of life function
+    def execute_event(self, event_id: str, role: str | None = None) -> None:
+        self._check_event_executable(event_id)
 
         url = SIMULATION_EVENT_URL.format(self.graph_id, self.sim_id, event_id)
         payload = json.dumps({"Role": role} if role else {})

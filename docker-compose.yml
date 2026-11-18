@@ -40,6 +40,7 @@ services:
       context: ./pais/dcr/microservice
       additional_contexts:
         dcr-sdk: ./pais/dcr/sdk
+        dcr-engine: ./pais/dcr/engine
     container_name: microservice
     ports:
       - "5002:5001"
