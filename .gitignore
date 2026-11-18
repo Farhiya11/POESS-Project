@@ -4,6 +4,8 @@
 venv/
 __pycache__/
 
+# System Files
+.DS_Store
 # Runtime event_logs_service and generated XES artifacts
 logs/
 XES/

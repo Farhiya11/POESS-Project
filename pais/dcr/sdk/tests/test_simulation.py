@@ -6,6 +6,7 @@ from requests.structures import CaseInsensitiveDict
 
 from dcr_sdk import Account, Simulation
 from dcr_sdk.utils.constants import (
+    GRAPH_URL,
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
@@ -14,6 +15,7 @@ from dcr_sdk.utils.constants import (
 
 from .constants import (
     CALL_TITLE,
+    GRAPH_BODY,
     GRAPH_ID,
     INCORRECT_PASSWORD,
     INIT_HEADERS,
@@ -33,13 +35,33 @@ EVENTS_CALL = call(
     allow_redirects=True,
 )
 
+# The graph definition is loaded once, right before the first event state
+GRAPH_CALL = call(
+    "GET",
+    GRAPH_URL.format(GRAPH_ID),
+    params=None,
+    allow_redirects=True,
+)
+
+
+# Every route answers with the given response, except the graph definition
+def dcr_responses(response: MagicMock):
+    graph = MagicMock(text=GRAPH_BODY, raise_for_status=lambda: None)
+
+    def respond(method: str, url: str, *args: object, **kwargs: object):
+        return graph if url == GRAPH_URL.format(GRAPH_ID) else response
+
+    return respond
+
 
 @patch.object(requests.Session, "request")
 def test_init_simulation_success(mock_post: MagicMock):
-    mock_post.return_value = MagicMock(
-        headers=CaseInsensitiveDict(INIT_HEADERS),
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_post.side_effect = dcr_responses(
+        MagicMock(
+            headers=CaseInsensitiveDict(INIT_HEADERS),
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
 
     simulation = Simulation(GRAPH_ID, Account(USERNAME, PASSWORD), title=TITLE)
@@ -55,15 +77,18 @@ def test_init_simulation_success(mock_post: MagicMock):
             data=CALL_TITLE,
             json=None,
         ),
+        GRAPH_CALL,
         EVENTS_CALL,
     ]
 
 
 @patch.object(requests.Session, "request")
 def test_load_existing_simulation(mock_request: MagicMock):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
 
     simulation = Simulation(
@@ -73,7 +98,11 @@ def test_load_existing_simulation(mock_request: MagicMock):
     assert simulation.sim_id == SIMULATION_ID
     assert simulation.url == SIMULATION_URL.format(GRAPH_ID, SIMULATION_ID)
 
-    assert mock_request.call_args_list == [EVENTS_CALL, EVENTS_CALL]
+    assert mock_request.call_args_list == [
+        EVENTS_CALL,
+        GRAPH_CALL,
+        EVENTS_CALL,
+    ]
 
 
 @patch.object(requests.Session, "request")
@@ -115,9 +144,11 @@ def test_init_simulation_unauthorized(mock_request: MagicMock):
 
 @patch.object(requests.Session, "request")
 def test_load_event_state(mock_request: MagicMock):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
@@ -130,12 +161,26 @@ def test_load_event_state(mock_request: MagicMock):
     assert state.events["FilloutExpenseReport"].enabled is True
     assert state.events["Approve"].enabled is False
 
+    # Containers the sim events leave out still come from the graph
+    assert list(state.events) == [
+        "FilloutExpenseReport",
+        "Review",
+        "Audit",
+        "CheckReceipts",
+        "Approve",
+        "Payout",
+    ]
+    assert state.events["Audit"].parent == "Review"
+    assert state.events["Audit"].included is False
+
 
 @patch.object(requests.Session, "request")
 def test_kill_simulation(mock_request: MagicMock):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
@@ -150,9 +195,11 @@ def test_kill_simulation(mock_request: MagicMock):
 
 @patch.object(requests.Session, "request")
 def test_execute_event(mock_request: MagicMock):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
@@ -180,10 +227,12 @@ def test_execute_event(mock_request: MagicMock):
 )
 @patch.object(requests.Session, "request")
 def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        text=body,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            text=body,
+            raise_for_status=lambda: None,
+        )
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID
@@ -206,9 +255,11 @@ def test_is_concluded(mock_request: MagicMock, body: str, expected: bool):
 def test_execute_event_rejected(
     mock_request: MagicMock, event_id: str, message: str
 ):
-    mock_request.return_value = MagicMock(
-        json=lambda: SIM_EVENTS_BODY,
-        raise_for_status=lambda: None,
+    mock_request.side_effect = dcr_responses(
+        MagicMock(
+            json=lambda: SIM_EVENTS_BODY,
+            raise_for_status=lambda: None,
+        )
     )
     simulation = Simulation(
         GRAPH_ID, Account(USERNAME, PASSWORD), sim_id=SIMULATION_ID

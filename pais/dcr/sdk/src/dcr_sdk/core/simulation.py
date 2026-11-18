@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import warnings
 from typing import cast
@@ -10,6 +11,7 @@ from dcr_sdk.core.account import Account
 from dcr_sdk.models import Event, State
 from dcr_sdk.utils.color import Color
 from dcr_sdk.utils.constants import (
+    GRAPH_URL,
     INITIALIZE_SIMULATION_URL,
     SIMULATION_EVENT_URL,
     SIMULATION_EVENTS_URL,
@@ -25,6 +27,7 @@ class Simulation:
     sim_id: int
     url: str
     parser: DCR_Parser
+    structure: dict[str, Event]
     state: State
 
     def __init__(
@@ -47,6 +50,10 @@ class Simulation:
         self.sim_id = sim_id
         self.url = SIMULATION_URL.format(graph_id, sim_id)
 
+        # Structure will contain the container elements
+        self.structure = self._load_structure()
+        # print(self.structure)
+        # State will contain events and the primary parents
         self.state = self._refresh_event_state()
 
     # ===== Simulation Managment Routes =======================
@@ -80,14 +87,20 @@ class Simulation:
 
     # ===== Event Managment Routes =======================
 
+    def _load_structure(self) -> dict[str, Event]:
+        response = self.account.session.get(GRAPH_URL.format(self.graph_id))
+        response.raise_for_status()
+        return self.parser.parse_graph_events(response.text)
+
     def _refresh_event_state(self, event_filter: str = "all") -> State:
         url = SIMULATION_EVENTS_URL.format(self.graph_id, self.sim_id)
         response = self.account.session.get(
             url, params={"filter": event_filter}
         )
         response.raise_for_status()
-        # DCR wraps the events XML in a JSON string
-        return self.parser.parse_state(cast(str, response.json()))
+        state = self.parser.parse_state(cast(str, response.json()))
+        events = {**self.structure, **state.events}
+        return dataclasses.replace(state, events=events)
 
     # This is a simple quality of life function
     def execute_event(self, event_id: str, role: str | None = None) -> None:
@@ -114,9 +127,14 @@ class Simulation:
         for event in self._children(""):
             self._print_event(event, zen)
 
-    def _children(self, parent_id: str) -> list[Event]:
-        events = self.state.events.values()
-        return [e for e in events if e.parent == parent_id]
+    def _children(self,parent_id: str) -> list[Event]:
+        children = []
+        for key, e in self.structure.items():
+            if e.parent == parent_id and self.state.events.get(key):
+                children.append(self.state.events.get(key))
+            elif e.parent ==parent_id:
+                children.append(e)
+        return children
 
     # If it has children, the program will default to subgraph
     def _is_container(self, event: Event) -> bool:

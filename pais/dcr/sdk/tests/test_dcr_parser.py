@@ -1,7 +1,12 @@
 from dcr_sdk import Event, Graph, Sim
 from dcr_sdk.utils.dcr_parser import DCR_Parser
 
-from .constants import ACCOUNT_GRAPH_BODY, GRAPH_SIMS_BODY, SIM_EVENTS_BODY
+from .constants import (
+    ACCOUNT_GRAPH_BODY,
+    GRAPH_BODY,
+    GRAPH_SIMS_BODY,
+    SIM_EVENTS_BODY,
+)
 
 
 def test_parse_graphs():
@@ -87,6 +92,45 @@ def test_parse_state():
         deadline="",
         sequence=1,
         parent="",
+        type="",
+        refer_id="",
+        event_type_data="",
+    )
+
+
+def test_parse_graph_events():
+    events = DCR_Parser.parse_graph_events(GRAPH_BODY)
+
+    # Definition order, and <runtime> events are not counted twice
+    assert list(events) == [
+        "FilloutExpenseReport",
+        "Review",
+        "Audit",
+        "CheckReceipts",
+        "Approve",
+        "Payout",
+    ]
+    assert events["Review"].parent == ""
+    assert events["Audit"].parent == "Review"
+    assert events["Audit"].type == "subprocess"
+    assert events["CheckReceipts"] == Event(
+        id="CheckReceipts",
+        included=False,
+        enabled=False,
+        pending=False,
+        effectively_pending=False,
+        effectively_included=False,
+        executed=False,
+        full_path="CheckReceipts",
+        roles="Auditor,Manager",
+        groups="",
+        description="",
+        label="Check receipts",
+        event_type="",
+        phases="",
+        deadline="",
+        sequence=5,
+        parent="Audit",
         type="",
         refer_id="",
         event_type_data="",
