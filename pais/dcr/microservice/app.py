@@ -4,7 +4,7 @@ from functools import cache
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pais.dcr.microservice.models.simulations import (
+from models.simulations import (
     ExecuteEventRequest,
     ExecuteEventResponse,
     SimulationStatusResponse,
