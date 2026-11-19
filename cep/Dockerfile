@@ -1,6 +1,6 @@
-FROM siddhiio/siddhi-runner-alpine:latest
+FROM siddhiio/siddhi-runner-alpine:5.1.0
 
 WORKDIR /apps
-#COPY OrderFoodAppDEMO.siddhi /apps/OrderFoodAppDEMO.siddhi
+COPY apps/OrderFoodAppDEMO.siddhi /apps/OrderFoodAppDEMO.siddhi
 
-ENTRYPOINT ["sh", "-c", "/home/siddhi_user/siddhi-runner/wso2/runner/bin/carbon.sh -Dapps=/apps/OrderFoodAppDEMO.siddhi"]
+CMD ["-Dapps=/apps/OrderFoodAppDEMO.siddhi"]

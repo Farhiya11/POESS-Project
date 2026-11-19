@@ -58,6 +58,13 @@ async def publish_message(name, order_id, variables):
     await client.publish_message(name, str(order_id), variables)
 
 
+@app.get("/health")
+def health():
+    if client is None or worker is None:
+        return jsonify({"status": "starting"}), 503
+    return jsonify({"status": "ok"})
+
+
 @app.post("/place_order")
 def place_order():
     data = request.get_json(force=True)
@@ -137,18 +144,13 @@ async def request_payment_task(orderId, caseId=None, job: Job = None):
 
 async def deploy_and_work():
     global client, worker
-    channel = grpc.aio.insecure_channel(ZEEBE_ADDRESS)
-    client = ZeebeClient(grpc_channel=channel)
-    worker = ZeebeWorker(grpc_channel=channel)
-    worker.task(task_type="place-order", variables_to_fetch=["orderId"])(place_order_task)
-    worker.task(task_type="make-order", variables_to_fetch=["orderId", "caseId"])(make_order_task)
-    worker.task(task_type="cancel-order", variables_to_fetch=["orderId", "caseId"])(cancel_order_task)
-    worker.task(task_type="send-food", variables_to_fetch=["orderId", "caseId"])(send_food_task)
-    worker.task(task_type="request-payment", variables_to_fetch=["orderId", "caseId"])(request_payment_task)
     for attempt in range(1, 31):
+        channel = grpc.aio.insecure_channel(ZEEBE_ADDRESS)
+        candidate_client = ZeebeClient(grpc_channel=channel)
         try:
-            deployment = await client.deploy_process(BPMN_FILE)
+            deployment = await candidate_client.deploy_process(BPMN_FILE)
             print(f"[Camunda] BPMN deployed: {deployment}", flush=True)
+            client = candidate_client
             break
         except Exception as error:
             cause = getattr(error, "__cause__", None)
@@ -157,9 +159,17 @@ async def deploy_and_work():
                 f"{error!r}; cause={cause!r}",
                 flush=True,
             )
+            await channel.close()
             if attempt == 30:
                 raise
             await asyncio.sleep(2)
+
+    worker = ZeebeWorker(grpc_channel=channel)
+    worker.task(task_type="place-order", variables_to_fetch=["orderId"])(place_order_task)
+    worker.task(task_type="make-order", variables_to_fetch=["orderId", "caseId"])(make_order_task)
+    worker.task(task_type="cancel-order", variables_to_fetch=["orderId", "caseId"])(cancel_order_task)
+    worker.task(task_type="send-food", variables_to_fetch=["orderId", "caseId"])(send_food_task)
+    worker.task(task_type="request-payment", variables_to_fetch=["orderId", "caseId"])(request_payment_task)
     await worker.work()
 
 

@@ -26,6 +26,13 @@ define stream MiddlemanStream(
     error string
 );
 
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7073/health",
+    @map(type='json')
+)
+define stream HealthCheckStream(status string);
+
 /* -----------------------------
    CAMUNDA COMMAND OUTPUTS
    ----------------------------- */
@@ -68,7 +75,7 @@ define stream PayOrderOut(order_id string);
 
 @sink(
     type='http',
-    publisher.url='http://logging-service:5010/log',
+    publisher.url='http://event_logs_service:5010/log',
     method='POST',
     @map(type='json')
 )

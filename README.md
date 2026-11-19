@@ -61,12 +61,49 @@ DCR_PASSWORD=...
 
 ## Running
 
-```powershell
-docker compose up --build
+Start the services in the background:
+
+```sh
+docker compose up --build -d
 ```
+
+Check that the containers are running:
+
+```sh
+docker compose ps
+```
+
+On the first start, wait until `zeebe`, `siddhi`, and `communication` show
+`healthy` before submitting events; the full stack can take a few minutes to
+initialize.
+
+Submit an event through the API adapter (the expected JSON fields are
+`order_id` and `action`):
+
+
+By default it sends `order-001` with the `PlaceOrder` action. Supply different
+values as arguments:
+
+```sh
+python3 scripts/client.py order-002 CancelOrder
+```
+
+The adapter forwards the event to Siddhi at `/customer`. In Camunda mode,
+Siddhi routes it to the communication service, which deploys and runs the BPMN
+process. Open [Camunda Operate](http://localhost:8081/operate) to inspect
+process instances. View service logs with:
+
+```sh
+docker compose logs -f communication siddhi event_logs_service
+```
+
+The Siddhi ports are HTTP event inputs, not browser pages. In particular,
+`http://localhost:7071/` sends a `GET` to a `POST`-only input and returns
+`Request type is not a type of POST`; use the adapter's `POST /events` endpoint
+instead.
 
 Stop the stack with:
 
-```powershell
+```sh
 docker compose down
 ```
