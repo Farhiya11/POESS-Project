@@ -1,13 +1,15 @@
 services:
-  # api_adapter:
-  #   build: ./sources/api_adapter
-  #   container_name: api-adapter
-  #   ports:
-  #     - "5000:5000"
-  #   environment:
-  #     INTEGRATION_URL: http://communication:5001
-  #   depends_on:
-  #     - communication
+  api_adapter:
+    build: ./sources/api_adapter
+    container_name: api-adapter
+    ports:
+      - "5000:5000"
+    environment:
+      EVENT_SINK_URL: ${EVENT_SINK_URL:-http://siddhi:8006/dmi}
+      MOCK_DMI: ${MOCK_DMI:-false}
+      POLL_SECONDS: ${POLL_SECONDS:-0}
+      STATIONS: ${STATIONS:-30336}
+      FORECAST_POINTS: ${FORECAST_POINTS:-copenhagen:12.70:55.70}
 
   # communication:
   #   build: ./integration
