@@ -5,6 +5,7 @@ definitions stay simple (one attribute per field, no nested JSON).
 """
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from typing import Any, ClassVar
 
 
 def now_iso() -> str:
@@ -25,9 +26,9 @@ class WaterLevelObservation:
     source: str = "dmi.oceanObs"
     ingested_at: str = ""
 
-    event_type = "WaterLevelObserved"
+    event_type: ClassVar[str] = "WaterLevelObserved"
 
-    def to_event(self) -> dict:
+    def to_event(self) -> dict[str, Any]:
         return {"event_type": self.event_type, **asdict(self), "ingested_at": self.ingested_at or now_iso()}
 
 
@@ -48,7 +49,7 @@ class SeaLevelForecast:
     source: str = "dmi.forecastedr"
     ingested_at: str = ""
 
-    event_type = "SeaLevelForecasted"
+    event_type: ClassVar[str] = "SeaLevelForecasted"
 
-    def to_event(self) -> dict:
+    def to_event(self) -> dict[str, Any]:
         return {"event_type": self.event_type, **asdict(self), "ingested_at": self.ingested_at or now_iso()}

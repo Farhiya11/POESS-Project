@@ -22,7 +22,7 @@ from models import SeaLevelForecast, WaterLevelObservation
 DMI_BASE_URL = os.getenv("DMI_BASE_URL", "https://opendataapi.dmi.dk")
 DMI_API_KEY = os.getenv("DMI_API_KEY", "")  # optional; DMI open data no longer requires one
 FORECAST_PARAMETER = "sea-mean-deviation"
-MOCK_DIR = Path(__file__).parent / "mock_data"
+MOCK_DIR = Path(__file__).parent / "tests" / "mock_data"
 
 
 def _parse_time(value: str) -> datetime:

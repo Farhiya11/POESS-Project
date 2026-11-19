@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY *.py .
-COPY mock_data ./mock_data
+COPY models ./models
+COPY tests/mock_data ./tests/mock_data
 
 CMD ["python", "app.py"]
