@@ -167,3 +167,10 @@ def pending_events(sim_name: str) -> list[EventNode]:
     return [
         EventNode(event, []) for event in engine().show_next_event(sim_name)
     ]
+
+# Events that are both enabled and pending, i.e. still required to finish
+@app.get("/simulations/{sim_name}/events/available")
+def available_events(sim_name: str) -> list[EventNode]:
+    return [
+        EventNode(event, []) for event in engine().show_available_events(sim_name)
+    ]

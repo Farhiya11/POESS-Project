@@ -44,6 +44,14 @@ class DCR_Engine:
         self.graphs = {
             graph.title: graph.id for graph in self.account.get_graphs()
         }
+        self.refresh_simulations()
+
+        # If the user knows what they want to initialize
+        if graph_title is not None and simulation_title is not None:
+            _ = self.attach_new_simulation(graph_title, simulation_title)
+
+    def refresh_simulations(self) -> None:
+        """Re-reads the simulation index from DCR, dropping stale entries."""
         self.simulations = {
             graph_title: {
                 simulation.title: simulation.id
@@ -51,10 +59,6 @@ class DCR_Engine:
             }
             for graph_title, graph_id in self.graphs.items()
         }
-
-        # If the user knows what they want to initialize
-        if graph_title is not None and simulation_title is not None:
-            _ = self.attach_new_simulation(graph_title, simulation_title)
 
     # ====== Actions For Standard Users =========
 
@@ -121,10 +125,23 @@ class DCR_Engine:
         return [
             event
             for event in running.state.events.values()
-            if event.enabled and event.pending
+            if event.enabled
+            and event.pending
+            and not self._is_subprocess(event)
+        ]
+
+    def show_available_events(self, sim_name: str) -> list[Event]:
+        running = self.running_simulations.get(sim_name) or raise_(
+            SimulationNotRunningError(sim_name)
+        )
+        return [
+            event
+            for event in running.state.events.values()
+            if event.enabled and not self._is_subprocess(event)
         ]
 
     def get_overview(self) -> Overview:
+        self.refresh_simulations()
         return Overview(
             graphs=self.graphs,
             simulations=self.simulations,
@@ -135,6 +152,11 @@ class DCR_Engine:
         )
 
     # ====== Helper Functions For validations ==========
+
+    # Subprocess boxes are containers: DCR rejects executing them
+    @staticmethod
+    def _is_subprocess(event: Event) -> bool:
+        return event.type.lower() == "subprocess"
 
     def _check_graph_existence(self, graph_title: str) -> None:
         if graph_title not in self.graphs:
@@ -155,7 +177,7 @@ class DCR_Engine:
                 EventNode(event, [])
                 for event in running.state.events.values()
                 if event.id not in children
-                and event.type.lower() != "subprocess"
+                and not self._is_subprocess(event)
             ]
 
         def node(event: Event) -> EventNode:
