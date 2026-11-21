@@ -6,6 +6,7 @@ services:
       - "5000:5000"
     environment:
       SIDDHI_URL: http://siddhi:7071/customer
+      SIDDHI_DCR_URL: http://siddhi:7074/customer
     depends_on:
       communication:
         condition: service_healthy
@@ -23,10 +24,15 @@ services:
       ZEEBE_ADDRESS: zeebe:26500
       BPMN_FILE: /bpmn/food_order.bpmn
       SIDDHI_CALLBACK_URL: http://siddhi:7072/middleman
+      DCR_SIDDHI_CALLBACK_URL: http://siddhi:7075/middleman
+      DCR_SERVICE_URL: http://microservice:5001
+      DCR_GRAPH_TITLE: "${DCR_GRAPH_TITLE:-}"
     depends_on:
       zeebe:
         condition: service_healthy
       siddhi:
+        condition: service_healthy
+      microservice:
         condition: service_healthy
     restart: on-failure
     healthcheck:
@@ -43,6 +49,8 @@ services:
       - "7071:7071"
       - "7072:7072"
       - "7073:7073"
+      - "7074:7074"
+      - "7075:7075"
       - "9390:9390"
     healthcheck:
       test:
@@ -74,11 +82,12 @@ services:
       - "5002:5001"
     env_file:
       - ./pais/dcr/microservice/.env
-    environment:
-      SIDDHI_CALLBACK_URL: http://siddhi:7072/middleman
-    depends_on:
-      siddhi:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
 
   event_logs_service:
