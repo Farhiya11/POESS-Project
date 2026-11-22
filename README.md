@@ -43,6 +43,22 @@ C:.
 - `pais/dcr/microservice` communicates with DCR Graph.
 - `event_logs_service/service` stores JSON and XES process logs.
 
+## Flood CEP input
+
+`FloodDecisionApp.siddhi` accepts the API adapter's flat DMI events at
+`POST http://siddhi:7076/events`. Set the adapter's `EVENT_SINK_URL` to that
+URL (or `http://localhost:7076/events` when posting from the host). The input
+contract is `WaterLevelObserved` or `SeaLevelForecasted`, with the fields
+defined by the adapter event dataclasses.
+
+The app currently logs these source events, preserving their flat DMI fields
+in the event-log payload. It also contains separate storm-surge and forecast
+decision paths, but both policy gates are deliberately closed (`1 == 0`).
+They must not be enabled until domain-approved thresholds, lead-time policy,
+and stable incident/case identifiers are selected. The forecast-warning
+process endpoint is also not implemented in the current integration service,
+so no flood PAIS commands are emitted by this app yet.
+
 ## Prerequisites    
 
 - Docker Engine or Docker Desktop
@@ -96,7 +112,10 @@ You then choose which enabled event to run next.
 
 The state request is read-only and goes directly to the DCR microservice. Starting
 a case and executing events always go through the adapter, Siddhi and the
-integration service.
+integration service. After each start or event execution, the integration service
+returns the current DCR status (`running` or `finished`) to Siddhi with the
+callback. Siddhi logs each callback and emits a separate `DCR Case Finished`
+event when the DCR simulation has no remaining pending events.
 
 ## Reading the logs
 

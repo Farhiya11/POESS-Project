@@ -28,14 +28,15 @@ def get_event_id(data):
     return data.get("event_id") or (event.get("event_id") if isinstance(event, dict) else None)
 
 
-def send_callback(order_id, case_id, event, payload):
+def send_callback(order_id, case_id, event, payload, status):
     body = {
         "order_id": order_id,
         "case_id": str(case_id),
         "event": event,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "role": "dcr",
-        "payload": json.dumps(payload),
+        "payload": json.dumps({**payload, "status": status}),
+        "status": status,
         "error": "",
     }
     response = requests.post(SIDDHI_CALLBACK_URL, json=body, timeout=30)
@@ -52,6 +53,20 @@ def state_url(simulation_name):
     return f"{DCR_SERVICE_URL}/simulations/{encoded}/state?only_events=true"
 
 
+def simulation_status(simulation_name):
+    encoded = quote(simulation_name, safe="")
+    response = requests.get(
+        f"{DCR_SERVICE_URL}/simulations/{encoded}",
+        timeout=30,
+    )
+    response.raise_for_status()
+    result = response.json()
+    status = result.get("status") if isinstance(result, dict) else None
+    if status not in {"running", "finished"}:
+        raise ValueError("DCR response did not contain a valid simulation status")
+    return status
+
+
 def enabled_events(response):
     return [
         item["event"]
@@ -63,7 +78,8 @@ def enabled_events(response):
 
 
 def upstream_status(error):
-    return error.response.status_code if error.response is not None else None
+    response = getattr(error, "response", None)
+    return response.status_code if response is not None else None
 
 
 @dcr_bp.post("/start_dcr_case")
@@ -115,10 +131,11 @@ def start_dcr_case():
         state = requests.get(state_url(simulation_name), timeout=30)
         state.raise_for_status()
         choices = enabled_events(state)
-    except requests.RequestException as error:
+        status = simulation_status(simulation_name)
+    except (requests.RequestException, ValueError) as error:
         current_app.logger.exception("Failed to inspect the new DCR simulation")
         return jsonify({
-            "error": "DCR simulation was created but its state could not be read",
+            "error": "DCR simulation was created but its state or status could not be read",
             "case_id": simulation_name,
             "upstream_status": upstream_status(error),
         }), 502
@@ -129,6 +146,7 @@ def start_dcr_case():
             simulation_name,
             "DCR Case Started",
             {"enabled_events": choices},
+            status,
         )
     except requests.RequestException:
         current_app.logger.exception("DCR simulation started, but callback to Siddhi failed")
@@ -142,6 +160,7 @@ def start_dcr_case():
         "order_id": order_id,
         "case_id": simulation_name,
         "enabled_events": choices,
+        "status": status,
     }), 202
 
 
@@ -189,7 +208,8 @@ def dcr_event():
         after = requests.get(state_url(simulation_name), timeout=30)
         after.raise_for_status()
         choices = enabled_events(after)
-    except requests.RequestException as error:
+        status = simulation_status(simulation_name)
+    except (requests.RequestException, ValueError) as error:
         current_app.logger.exception("DCR event execution failed")
         return jsonify({"error": "DCR event failed", "upstream_status": upstream_status(error)}), 502
 
@@ -200,6 +220,7 @@ def dcr_event():
             simulation_name,
             label,
             {"executed_event_id": event_id, "enabled_events": choices},
+            status,
         )
     except requests.RequestException:
         current_app.logger.exception("DCR event executed, but callback to Siddhi failed")
@@ -210,4 +231,5 @@ def dcr_event():
         "case_id": simulation_name,
         "executed_event_id": event_id,
         "enabled_events": choices,
+        "status": status,
     }), 202

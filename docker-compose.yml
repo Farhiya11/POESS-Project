@@ -7,6 +7,7 @@ services:
     environment:
       SIDDHI_URL: http://siddhi:7071/customer
       SIDDHI_DCR_URL: http://siddhi:7074/customer
+      EVENT_SINK_URL: http://siddhi:7076/events
     depends_on:
       communication:
         condition: service_healthy
@@ -51,6 +52,7 @@ services:
       - "7073:7073"
       - "7074:7074"
       - "7075:7075"
+      - "7076:7076"
       - "9390:9390"
     healthcheck:
       test:

@@ -19,6 +19,7 @@ define stream MiddlemanStream(
     timestamp string,
     role string,
     payload string,
+    status string,
     error string
 );
 
@@ -78,6 +79,11 @@ insert into RoutingError;
 
 from MiddlemanStream
 select event, case_id, order_id, timestamp, role, payload,
+       ifThenElse(error is null, "", error) as error
+insert into Logging;
+
+from MiddlemanStream[status == "finished"]
+select "DCR Case Finished" as event, case_id, order_id, timestamp, role, payload,
        ifThenElse(error is null, "", error) as error
 insert into Logging;
 
