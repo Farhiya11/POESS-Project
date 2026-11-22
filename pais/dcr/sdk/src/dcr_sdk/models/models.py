@@ -51,7 +51,6 @@ class Event:
     refer_id: str
     event_type_data: str
 
-    # Subprocess boxes are containers: DCR rejects executing them
     @property
     def is_subprocess(self) -> bool:
         return self.type.lower() == "subprocess"
