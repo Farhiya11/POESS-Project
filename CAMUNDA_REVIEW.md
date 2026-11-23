@@ -37,6 +37,11 @@ docker compose -f compose.camunda-review.yml logs --tail=30 communication
 - Event-by-event execution is not implemented yet.
 - This isolated test stack does not require DCR credentials.
 
+## BPMN files
+
+- `Disaster_Attention_Protocol.bpmn` is the original process model, kept for reference.
+- `Disaster_Attention_Protocol_camunda.bpmn` is the executable Camunda version, automatically deployed when the Docker test environment starts.
+
 ## Stop
 
 docker compose -f compose.camunda-review.yml down
