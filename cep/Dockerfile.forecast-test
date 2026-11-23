@@ -1,0 +1,6 @@
+FROM siddhiio/siddhi-runner-alpine:5.1.0
+
+WORKDIR /apps
+COPY apps/DisasterForecastApp.siddhi /apps/DisasterForecastApp.siddhi
+
+CMD ["-Dapps=/apps/DisasterForecastApp.siddhi"]

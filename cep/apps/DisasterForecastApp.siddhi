@@ -1,0 +1,35 @@
+
+@App:name("DisasterForecastApp")
+
+/* Modtag simulerede DMI-prognoser */
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7071/forecast",
+    @map(type='json')
+)
+define stream ForecastInput(
+    waterLevel double,
+    criticalLevel double,
+    location string
+);
+
+/* Send prognosen videre til Flask */
+@sink(
+    type='http',
+    publisher.url='http://communication:5001/forecast_warning',
+    method='POST',
+    @map(
+    type='json',
+    @payload("""{"waterLevel":{{waterLevel}},"criticalLevel":{{criticalLevel}},"location":"{{location}}"}""")
+)
+)
+define stream ForecastToCamunda(
+    waterLevel double,
+    criticalLevel double,
+    location string
+);
+
+/* Videresend modtagne prognoser */
+from ForecastInput
+select waterLevel, criticalLevel, location
+insert into ForecastToCamunda;
