@@ -15,11 +15,10 @@ ZEEBE_ADDRESS = os.getenv("ZEEBE_ADDRESS", "zeebe:26500")
 BPMN_FILE = os.getenv("BPMN_FILE", "/bpmn/food_order.bpmn")
 SIDDHI_CALLBACK_URL = os.getenv("SIDDHI_CALLBACK_URL", "http://siddhi:7072/middleman")
 CUSTOMER_PROCESS_ID = "Process_06p6nly"
-FORECAST_PROCESS_ID = "Process_0q7dfku"
 
 app = Flask(__name__)
 app.register_blueprint(dcr_bp)
-client: ZeebeClient | None = None
+client = None
 worker = None
 event_loop = None
 process_keys = {}
@@ -68,33 +67,6 @@ def health():
         return jsonify({"status": "starting"}), 503
     return jsonify({"status": "ok"})
 
-@app.post("/forecast_warning")
-def forecast_warning():
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        return jsonify({"error": "JSON data is required"}), 400
-
-    try:
-        water_level = float(data["waterLevel"])
-        critical_level = float(data["criticalLevel"])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "Valid waterLevel and criticalLevel are required"}), 400
-
-    if client is None:
-        return jsonify({"error": "Camunda is not ready"}), 503
-    process_key = run_async(
-        client.run_process(
-            FORECAST_PROCESS_ID,
-            variables={
-                "waterLevel": water_level,
-                "criticalLevel": critical_level,
-                "location": data.get("location", "")
-            }
-        )
-    )
-
-    return jsonify({"status": "started", "case_id": str(process_key)}), 202
 
 @app.post("/place_order")
 def place_order():
@@ -172,16 +144,6 @@ async def request_payment_task(orderId, caseId=None, job: Job = None):
     callback(orderId, caseId, "PayOrder", variables)
     return variables
 
-async def evaluate_forecast_task(waterLevel, criticalLevel):
-    is_critical = float(waterLevel) >= float(criticalLevel)
-    return {"isCritical": is_critical}
-
-async def send_preparedness_notice_task(job: Job):
-    print(
-        f"[Camunda] Simulating preparedness notice for {job.process_instance_key}",
-        flush=True
-    )
-    return {"preparednessNoticeSimulated": True}
 
 async def deploy_and_work():
     global client, worker
@@ -211,8 +173,6 @@ async def deploy_and_work():
     worker.task(task_type="cancel-order", variables_to_fetch=["orderId", "caseId"])(cancel_order_task)
     worker.task(task_type="send-food", variables_to_fetch=["orderId", "caseId"])(send_food_task)
     worker.task(task_type="request-payment", variables_to_fetch=["orderId", "caseId"])(request_payment_task)
-    worker.task(task_type="evaluate-forecast",variables_to_fetch=["waterLevel", "criticalLevel"])(evaluate_forecast_task)
-    worker.task(task_type="send-preparedness-notice")(send_preparedness_notice_task)
     await worker.work()
 
 

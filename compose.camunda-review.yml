@@ -39,8 +39,9 @@ services:
       start_period: 30s
 
   communication:
-    build: ./integration
-    command: ["python", "/bpmn/disaster_service.py"]
+    build:
+      context: ./pais/bpmn/microservice
+      dockerfile: Dockerfile.camunda-review
     volumes:
       - ./pais/bpmn/microservice:/bpmn:ro
     ports:

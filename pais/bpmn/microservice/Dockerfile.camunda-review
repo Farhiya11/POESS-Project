@@ -1,0 +1,10 @@
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir pyzeebe==3.0.4 flask==3.0.3
+
+COPY disaster_service.py /app/disaster_service.py
+
+CMD ["python", "/app/disaster_service.py"]
