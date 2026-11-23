@@ -9,6 +9,8 @@ import requests
 from flask import Flask, jsonify, request
 from pyzeebe import Job, ZeebeClient, ZeebeWorker
 
+from dcr_integration import dcr_bp
+
 ZEEBE_ADDRESS = os.getenv("ZEEBE_ADDRESS", "zeebe:26500")
 BPMN_FILE = os.getenv("BPMN_FILE", "/bpmn/food_order.bpmn")
 SIDDHI_CALLBACK_URL = os.getenv("SIDDHI_CALLBACK_URL", "http://siddhi:7072/middleman")
@@ -16,6 +18,7 @@ CUSTOMER_PROCESS_ID = "Process_06p6nly"
 FORECAST_PROCESS_ID = "Process_0q7dfku"
 
 app = Flask(__name__)
+app.register_blueprint(dcr_bp)
 client: ZeebeClient | None = None
 worker = None
 event_loop = None

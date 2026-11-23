@@ -57,6 +57,83 @@ Set these variables before starting the stack if DCR is enabled:
 DCR_GRAPH_ID=...
 DCR_USERNAME=...
 DCR_PASSWORD=...
+### DCR
+
+DCR is event-driven. Starting a case creates a simulation and executes nothing.
+You then choose which enabled event to run next.
+
+1. Start a case: with the default graph, or pick one for this case:
+
+   ```powershell
+   python3 scripts/client_dcr.py flood-case-001
+   python3 scripts/client_dcr.py flood-case-002 --graph "Exact Graph Title"
+   ```
+
+   `HTTP 202` means the adapter accepted the event. Processing is asynchronous,
+   so wait briefly before checking the case.
+
+2. Find the enabled events: Choose one whose `enabled` value is `true`:
+
+   ```powershell
+   curl.exe "http://localhost:5002/simulations/flood-case-001/state?only_events=true"
+   ```
+
+   Don't assume a first event ID. Each graph defines its own events and rules.
+
+3. Execute an event: through the same client and adapter route:
+
+   ```powershell
+   python3 scripts/client_dcr.py flood-case-001 EVENT_ID
+   ```
+
+4. Repeat steps 2 and 3 until the case finishes. Check with:
+
+   ```powershell
+   curl.exe http://localhost:5002/simulations/flood-case-001
+   ```
+
+   The status becomes `finished` when the graph is done.
+
+The state request is read-only and goes directly to the DCR microservice. Starting
+a case and executing events always go through the adapter, Siddhi and the
+integration service.
+
+## Reading the logs
+
+There are two places to look.
+
+### Event log (what happened in each case)
+
+Every executed step is sent to the event log service, which stores it as JSON and
+XES. Follow it live with:
+
+```powershell
+docker compose logs -f event_logs_service
+```
+```
+
+There are two ways to select the DCR graph; you can use both modes in the same
+run:
+
+1. Put a default graph title in a repository-root `.env` file. Starts without
+   `--graph` use this graph:
+
+```text
+DCR_GRAPH_TITLE= Put the title of your own DCR graph
+```
+
+2. Pass `--graph "Exact Graph Title"` when starting a case. This selects that
+   graph for that case and overrides the `.env` default only for that case. It
+   does not change the default for other cases, and the default does not limit
+   which other graphs you can select.
+
+The root `.env` is ignored by Git, so create it locally if needed. After
+changing the default, apply it by starting or recreating the integration
+service with `docker compose up -d --build communication`. You can list exact
+graph titles available from the DCR service with:
+
+```sh
+curl http://localhost:5002/graphs
 ```
 
 ## Running

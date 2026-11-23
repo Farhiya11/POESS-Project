@@ -4,7 +4,7 @@ from functools import cache
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pais.dcr.microservice.models.simulations import (
+from models.simulations import (
     ExecuteEventRequest,
     ExecuteEventResponse,
     SimulationStatusResponse,
@@ -40,6 +40,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="DCR Microservice", lifespan=lifespan)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    _ = engine()
+    return {"status": "ok"}
+
 
 # ======================================================================
 # EXCEPTION HANDLERS
