@@ -1,0 +1,85 @@
+# Isolated review stack for the Disaster Attention Protocol prototype.
+# Run from the repository root:
+#   docker compose -f compose.camunda-review.yml up --build -d
+name: poess-camunda-review
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9201:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  zeebe:
+    image: camunda/zeebe:8.8.46
+    ports:
+      - "26502:26500"
+      - "9602:9600"
+    environment:
+      CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI: "true"
+      CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED: "false"
+      CAMUNDA_DATA_SECONDARY_STORAGE_ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9600/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  communication:
+    build: ./integration
+    command: ["python", "/bpmn/disaster_service.py"]
+    volumes:
+      - ./pais/bpmn/microservice:/bpmn:ro
+    ports:
+      - "5003:5001"
+    environment:
+      ZEEBE_ADDRESS: zeebe:26500
+      BPMN_FILE: /bpmn/Disaster_Attention_Protocol_camunda.bpmn
+    depends_on:
+      zeebe:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=3)"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  siddhi-forecast:
+    build:
+      context: ./cep
+      dockerfile: Dockerfile.forecast-test
+    ports:
+      - "7076:7071"
+    depends_on:
+      communication:
+        condition: service_healthy
+
+  operate:
+    image: camunda/operate:8.8.46
+    ports:
+      - "8082:8080"
+    environment:
+      CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS: zeebe:26500
+      CAMUNDA_OPERATE_ELASTICSEARCH_URL: http://elasticsearch:9200
+      CAMUNDA_DATA_SECONDARY_STORAGE_ELASTICSEARCH_URL: http://elasticsearch:9200
+      CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI: "true"
+      CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED: "false"
+    depends_on:
+      zeebe:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
