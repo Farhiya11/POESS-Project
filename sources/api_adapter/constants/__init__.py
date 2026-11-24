@@ -25,3 +25,5 @@ import os  # noqa: E402
 
 EVENT_SINK_URL = os.getenv("EVENT_SINK_URL", "http://siddhi:8006/dmi")
 EVENT_SINK_TIMEOUT_SECONDS = 10
+
+POLL_INTERVAL_SECONDS = 600  # DMI updates obs every 10 min
