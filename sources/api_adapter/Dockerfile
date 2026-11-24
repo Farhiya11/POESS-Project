@@ -5,8 +5,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py .
+COPY constants ./constants
+COPY dmi ./dmi
 COPY models ./models
-COPY tests/mock_data ./tests/mock_data
+COPY service ./service
+COPY ingestion_server.py .
 
-CMD ["python", "app.py"]
+CMD ["uvicorn", "ingestion_server:app", "--host", "0.0.0.0", "--port", "5000"]
