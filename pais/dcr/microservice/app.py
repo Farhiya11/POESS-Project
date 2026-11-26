@@ -4,11 +4,6 @@ from functools import cache
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from models.simulations import (
-    ExecuteEventRequest,
-    ExecuteEventResponse,
-    SimulationStatusResponse,
-)
 
 from dcr_engine import (
     DCR_Engine,
@@ -16,10 +11,15 @@ from dcr_engine import (
     EventDoesNotExistError,
     EventNode,
     GraphDoesNotExistError,
-    SimulationStatus,
     SimulationNotRunningError,
+    SimulationStatus,
 )
 from models import AttachRequest, AttachResponse, GraphSummary
+from models.simulations import (
+    ExecuteEventRequest,
+    ExecuteEventResponse,
+    SimulationStatusResponse,
+)
 
 # ======================================================================
 # MICRO-SERVICE START SEQUENCE
@@ -168,9 +168,16 @@ def events(sim_name: str) -> list[EventNode]:
     return engine().show_state(sim_name, True)
 
 
-# Events that are both enabled and pending, i.e. still required to finish
 @app.get("/simulations/{sim_name}/events/pending")
 def pending_events(sim_name: str) -> list[EventNode]:
     return [
         EventNode(event, []) for event in engine().show_next_event(sim_name)
+    ]
+
+
+@app.get("/simulations/{sim_name}/events/available")
+def available_events(sim_name: str) -> list[EventNode]:
+    return [
+        EventNode(event, [])
+        for event in engine().show_available_events(sim_name)
     ]
