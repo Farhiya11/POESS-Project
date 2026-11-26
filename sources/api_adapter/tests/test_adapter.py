@@ -67,6 +67,55 @@ def test_forwarder_raises_when_sink_fails() -> None:
     assert forwarder.recent(10) == []
 
 
+def test_forwarder_sends_flat_dmi_event() -> None:
+    session = MagicMock()
+    session.post.return_value = response()
+    event = {
+        "event_type": "SeaLevelForecasted",
+        "location_id": "copenhagen",
+        "sea_level_cm": 142.0,
+    }
+    forwarder = EventForwarder("http://siddhi:7076/events", session=session)
+
+    forwarder.send(event)
+
+    session.post.assert_called_once_with(
+        "http://siddhi:7076/events",
+        json=event,
+        timeout=10,
+    )
+    assert forwarder.recent(1) == [event]
+
+
+def test_forwarder_sends_complete_forecast_refresh() -> None:
+    session = MagicMock()
+    session.post.return_value = response()
+    forwarder = EventForwarder("http://sink", session=session)
+    forecasts = [
+        {
+            "event_type": "SeaLevelForecasted",
+            "location_id": "copenhagen",
+            "forecast_for": "2026-11-26T14:00:00+00:00",
+            "sea_level_cm": 142.0,
+            "lead_time_hours": 1.0,
+            "ingested_at": "first-poll",
+        }
+    ]
+
+    forwarder.send_forecast_refresh("copenhagen", forecasts)
+
+    call = session.post.call_args
+    assert call.args == ("http://communication:5001/forecast_refresh",)
+    assert call.kwargs["json"]["location_id"] == "copenhagen"
+    assert call.kwargs["json"]["forecasts"] == forecasts
+    refresh_id = call.kwargs["json"]["refresh_id"]
+    assert len(refresh_id) == 64
+
+    updated_ingestion_time = [dict(forecasts[0], ingested_at="later-poll")]
+    forwarder.send_forecast_refresh("copenhagen", updated_ingestion_time)
+    assert session.post.call_args.kwargs["json"]["refresh_id"] == refresh_id
+
+
 def test_ingestion_dedups_observations() -> None:
     session = MagicMock()
     session.get.return_value = response(load("ocean_obs.json"))
@@ -76,6 +125,25 @@ def test_ingestion_dedups_observations() -> None:
     second = service.ingest_observations()
     assert (second.sent, second.skipped_duplicates) == (0, 2)
     assert forwarder.send.call_count == 2
+
+
+def test_ingestion_forwards_complete_forecast_refresh() -> None:
+    events = [
+        {"event_type": "SeaLevelForecasted", "sea_level_cm": 100.0},
+        {"event_type": "SeaLevelForecasted", "sea_level_cm": 120.0},
+    ]
+    forecasts = [MagicMock(to_event=MagicMock(return_value=event)) for event in events]
+    client = MagicMock()
+    client.forecast.return_value = forecasts
+    forwarder = MagicMock()
+    service = IngestionService(client, forwarder)
+
+    result = service.ingest_forecast()
+
+    assert result.sent == 2
+    forwarder.send_forecast_refresh.assert_called_once_with("copenhagen", events)
+    assert forwarder.send.call_args_list[0].args == (events[0],)
+    assert forwarder.send.call_args_list[1].args == (events[1],)
 
 
 def test_server_routes(monkeypatch: pytest.MonkeyPatch) -> None:

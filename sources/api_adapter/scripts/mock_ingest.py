@@ -2,7 +2,7 @@
 to a sink. Usage (from sources/api_adapter):
 
     python scripts/mock_ingest.py                      # just print the events
-    python scripts/mock_ingest.py http://localhost:8006/dmi   # also send them
+    python scripts/mock_ingest.py http://localhost:7076/events   # also send them
 """
 import json
 import sys

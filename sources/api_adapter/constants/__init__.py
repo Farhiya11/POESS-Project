@@ -19,11 +19,14 @@ FORECAST_LOCATION_ID = "copenhagen"
 FORECAST_LON = 12.70
 FORECAST_LAT = 55.70
 
-# where events go. this one does change per setup (docker vs local) so it
-# can be overridden; the path still has to be agreed with the siddhi side
+# Where events go; override this for local or non-default Docker setups.
 import os  # noqa: E402
 
-EVENT_SINK_URL = os.getenv("EVENT_SINK_URL", "http://siddhi:8006/dmi")
+EVENT_SINK_URL = os.getenv("EVENT_SINK_URL", "http://siddhi:7076/events")
+PREPAREDNESS_WARNING_POLICY_URL = os.getenv(
+    "PREPAREDNESS_WARNING_POLICY_URL",
+    "http://communication:5001/forecast_refresh",
+)
 EVENT_SINK_TIMEOUT_SECONDS = 10
 
 POLL_INTERVAL_SECONDS = 600  # DMI updates obs every 10 min

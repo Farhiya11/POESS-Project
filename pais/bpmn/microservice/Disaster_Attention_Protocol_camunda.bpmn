@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="sid-38422fae-e03e-43a3-bef4-bd33b32041b2" targetNamespace="http://bpmn.io/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.31.1" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0">
+  <message id="Message_AlertLevelUpdated" name="AlertLevelUpdated">
+    <extensionElements>
+      <zeebe:subscription correlationKey="=caseId" />
+    </extensionElements>
+  </message>
   <collaboration id="Collaboration_1qpgoh5">
     <participant id="Participant_0brrgte" name="DMI" processRef="Process_1" />
     <participant id="Participant_0vd475x" name="Danish Coastal Authority" processRef="Process_0q7dfku" />
@@ -95,33 +100,122 @@
       <startEvent id="Event_1pl5gzs">
         <outgoing>Flow_174uit4</outgoing>
       </startEvent>
-      <task id="Activity_0xzf0jk" name="Internal preparedness">
+      <serviceTask id="Activity_0xzf0jk" name="Internal preparedness">
+        <extensionElements>
+          <zeebe:taskDefinition type="prepare-internal" retries="3" />
+        </extensionElements>
         <incoming>Flow_174uit4</incoming>
         <outgoing>Flow_07ubxgo</outgoing>
-      </task>
+      </serviceTask>
       <sequenceFlow id="Flow_174uit4" sourceRef="Event_1pl5gzs" targetRef="Activity_0xzf0jk" />
-      <task id="Activity_0ugcx6k" name="Information preparedness">
+      <intermediateCatchEvent id="Event_WaitForInformation" name="Wait for alert update">
+        <incoming>Flow_WaitForInformation</incoming>
+        <outgoing>Flow_InformationClearCheck</outgoing>
+        <messageEventDefinition id="MessageEventDefinition_WaitForInformation" messageRef="Message_AlertLevelUpdated" />
+      </intermediateCatchEvent>
+      <exclusiveGateway id="Gateway_InformationClearCheck" default="Flow_InformationNotCleared">
+        <incoming>Flow_InformationClearCheck</incoming>
+        <outgoing>Flow_InformationCleared</outgoing>
+        <outgoing>Flow_InformationNotCleared</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_InformationCleared" name="Cleared" sourceRef="Gateway_InformationClearCheck" targetRef="Event_AlertCleared">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "NONE"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_InformationNotCleared" sourceRef="Gateway_InformationClearCheck" targetRef="Gateway_InformationLevel" />
+      <exclusiveGateway id="Gateway_InformationLevel" default="Flow_WaitForInformation">
+        <incoming>Flow_InformationNotCleared</incoming>
         <incoming>Flow_07ubxgo</incoming>
+        <outgoing>Flow_InformationReached</outgoing>
+        <outgoing>Flow_WaitForInformation</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_InformationReached" sourceRef="Gateway_InformationLevel" targetRef="Activity_0ugcx6k">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "INFORMATION" or alertLevel = "STATE" or alertLevel = "OPERATIONAL"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_WaitForInformation" sourceRef="Gateway_InformationLevel" targetRef="Event_WaitForInformation" />
+      <serviceTask id="Activity_0ugcx6k" name="Information preparedness">
+        <extensionElements>
+          <zeebe:taskDefinition type="prepare-information" retries="3" />
+        </extensionElements>
+        <incoming>Flow_InformationReached</incoming>
         <outgoing>Flow_1vtdlf7</outgoing>
-      </task>
-      <sequenceFlow id="Flow_07ubxgo" sourceRef="Activity_0xzf0jk" targetRef="Activity_0ugcx6k" />
-      <task id="Activity_00ng8q5" name="Staff preparedness">
+      </serviceTask>
+      <intermediateCatchEvent id="Event_WaitForState" name="Wait for alert update">
+        <incoming>Flow_WaitForState</incoming>
+        <outgoing>Flow_StateClearCheck</outgoing>
+        <messageEventDefinition id="MessageEventDefinition_WaitForState" messageRef="Message_AlertLevelUpdated" />
+      </intermediateCatchEvent>
+      <exclusiveGateway id="Gateway_StateClearCheck" default="Flow_StateNotCleared">
+        <incoming>Flow_StateClearCheck</incoming>
+        <outgoing>Flow_StateCleared</outgoing>
+        <outgoing>Flow_StateNotCleared</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_StateCleared" name="Cleared" sourceRef="Gateway_StateClearCheck" targetRef="Event_AlertCleared">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "NONE"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_StateNotCleared" sourceRef="Gateway_StateClearCheck" targetRef="Gateway_StateLevel" />
+      <exclusiveGateway id="Gateway_StateLevel" default="Flow_WaitForState">
+        <incoming>Flow_StateNotCleared</incoming>
         <incoming>Flow_1vtdlf7</incoming>
+        <outgoing>Flow_StateReached</outgoing>
+        <outgoing>Flow_WaitForState</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_StateReached" sourceRef="Gateway_StateLevel" targetRef="Activity_00ng8q5">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "STATE" or alertLevel = "OPERATIONAL"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_WaitForState" sourceRef="Gateway_StateLevel" targetRef="Event_WaitForState" />
+      <serviceTask id="Activity_00ng8q5" name="Staff preparedness">
+        <extensionElements>
+          <zeebe:taskDefinition type="prepare-staff" retries="3" />
+        </extensionElements>
+        <incoming>Flow_StateReached</incoming>
         <outgoing>Flow_1ozhuvb</outgoing>
-      </task>
-      <sequenceFlow id="Flow_1ozhuvb" sourceRef="Activity_00ng8q5" targetRef="Activity_0qi7v05" />
+      </serviceTask>
+      <intermediateCatchEvent id="Event_WaitForOperational" name="Wait for alert update">
+        <incoming>Flow_WaitForOperational</incoming>
+        <outgoing>Flow_OperationalClearCheck</outgoing>
+        <messageEventDefinition id="MessageEventDefinition_WaitForOperational" messageRef="Message_AlertLevelUpdated" />
+      </intermediateCatchEvent>
+      <exclusiveGateway id="Gateway_OperationalClearCheck" default="Flow_OperationalNotCleared">
+        <incoming>Flow_OperationalClearCheck</incoming>
+        <outgoing>Flow_OperationalCleared</outgoing>
+        <outgoing>Flow_OperationalNotCleared</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_OperationalCleared" name="Cleared" sourceRef="Gateway_OperationalClearCheck" targetRef="Event_AlertCleared">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "NONE"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_OperationalNotCleared" sourceRef="Gateway_OperationalClearCheck" targetRef="Gateway_OperationalLevel" />
+      <exclusiveGateway id="Gateway_OperationalLevel" default="Flow_WaitForOperational">
+        <incoming>Flow_OperationalNotCleared</incoming>
+        <incoming>Flow_1ozhuvb</incoming>
+        <outgoing>Flow_OperationalReached</outgoing>
+        <outgoing>Flow_WaitForOperational</outgoing>
+      </exclusiveGateway>
+      <sequenceFlow id="Flow_OperationalReached" sourceRef="Gateway_OperationalLevel" targetRef="Activity_0qi7v05">
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "OPERATIONAL"</conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="Flow_WaitForOperational" sourceRef="Gateway_OperationalLevel" targetRef="Event_WaitForOperational" />
+      <serviceTask id="Activity_0qi7v05" name="Operational preparedness">
+        <extensionElements>
+          <zeebe:taskDefinition type="send-preparedness-notice" retries="3" />
+        </extensionElements>
+        <incoming>Flow_OperationalReached</incoming>
+        <outgoing>Flow_1gxpw5b</outgoing>
+      </serviceTask>
       <endEvent id="Event_1t54q9i">
         <incoming>Flow_1gxpw5b</incoming>
       </endEvent>
+      <endEvent id="Event_AlertCleared" name="Alert cleared">
+        <incoming>Flow_InformationCleared</incoming>
+        <incoming>Flow_StateCleared</incoming>
+        <incoming>Flow_OperationalCleared</incoming>
+      </endEvent>
       <sequenceFlow id="Flow_1gxpw5b" sourceRef="Activity_0qi7v05" targetRef="Event_1t54q9i" />
-      <sequenceFlow id="Flow_1vtdlf7" sourceRef="Activity_0ugcx6k" targetRef="Activity_00ng8q5" />
-      <sendTask id="Activity_0qi7v05" name="Operational preparedness">
-      <extensionElements>
-      <zeebe:taskDefinition type="send-preparedness-notice" retries="3" />
-      </extensionElements>
-        <incoming>Flow_1ozhuvb</incoming>
-        <outgoing>Flow_1gxpw5b</outgoing>
-      </sendTask>
+      <sequenceFlow id="Flow_07ubxgo" sourceRef="Activity_0xzf0jk" targetRef="Gateway_InformationLevel" />
+      <sequenceFlow id="Flow_1vtdlf7" sourceRef="Activity_0ugcx6k" targetRef="Gateway_StateLevel" />
+      <sequenceFlow id="Flow_1ozhuvb" sourceRef="Activity_00ng8q5" targetRef="Gateway_OperationalLevel" />
+      <sequenceFlow id="Flow_InformationClearCheck" sourceRef="Event_WaitForInformation" targetRef="Gateway_InformationClearCheck" />
+      <sequenceFlow id="Flow_StateClearCheck" sourceRef="Event_WaitForState" targetRef="Gateway_StateClearCheck" />
+      <sequenceFlow id="Flow_OperationalClearCheck" sourceRef="Event_WaitForOperational" targetRef="Gateway_OperationalClearCheck" />
     </subProcess>
     <endEvent id="Event_05kptbx">
       <incoming>Flow_0sjqkpl</incoming>
@@ -260,19 +354,49 @@
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0ugcx6k_di" bpmnElement="Activity_0ugcx6k">
-        <omgdc:Bounds x="1080" y="580" width="100" height="80" />
+        <omgdc:Bounds x="1110" y="580" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_00ng8q5_di" bpmnElement="Activity_00ng8q5">
-        <omgdc:Bounds x="1250" y="580" width="100" height="80" />
+        <omgdc:Bounds x="1290" y="580" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1t54q9i_di" bpmnElement="Event_1t54q9i">
         <omgdc:Bounds x="1572" y="602" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0q3ikqg_di" bpmnElement="Activity_0qi7v05">
-        <omgdc:Bounds x="1410" y="580" width="100" height="80" />
+        <omgdc:Bounds x="1470" y="580" width="100" height="80" />
         <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_InformationLevel_di" bpmnElement="Gateway_InformationLevel" isMarkerVisible="true">
+        <omgdc:Bounds x="1040" y="595" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_WaitForInformation_di" bpmnElement="Event_WaitForInformation">
+        <omgdc:Bounds x="1047" y="705" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_InformationClearCheck_di" bpmnElement="Gateway_InformationClearCheck" isMarkerVisible="true">
+        <omgdc:Bounds x="1100" y="698" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_StateLevel_di" bpmnElement="Gateway_StateLevel" isMarkerVisible="true">
+        <omgdc:Bounds x="1225" y="595" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_WaitForState_di" bpmnElement="Event_WaitForState">
+        <omgdc:Bounds x="1232" y="705" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_StateClearCheck_di" bpmnElement="Gateway_StateClearCheck" isMarkerVisible="true">
+        <omgdc:Bounds x="1285" y="698" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_OperationalLevel_di" bpmnElement="Gateway_OperationalLevel" isMarkerVisible="true">
+        <omgdc:Bounds x="1405" y="595" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_WaitForOperational_di" bpmnElement="Event_WaitForOperational">
+        <omgdc:Bounds x="1412" y="705" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_OperationalClearCheck_di" bpmnElement="Gateway_OperationalClearCheck" isMarkerVisible="true">
+        <omgdc:Bounds x="1465" y="698" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_AlertCleared_di" bpmnElement="Event_AlertCleared">
+        <omgdc:Bounds x="1570" y="729" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_174uit4_di" bpmnElement="Flow_174uit4">
         <omgdi:waypoint x="896" y="620" />
@@ -280,19 +404,85 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_07ubxgo_di" bpmnElement="Flow_07ubxgo">
         <omgdi:waypoint x="1020" y="620" />
-        <omgdi:waypoint x="1080" y="620" />
+        <omgdi:waypoint x="1040" y="620" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1vtdlf7_di" bpmnElement="Flow_1vtdlf7">
-        <omgdi:waypoint x="1180" y="620" />
-        <omgdi:waypoint x="1250" y="620" />
+        <omgdi:waypoint x="1210" y="620" />
+        <omgdi:waypoint x="1225" y="620" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1ozhuvb_di" bpmnElement="Flow_1ozhuvb">
-        <omgdi:waypoint x="1350" y="620" />
-        <omgdi:waypoint x="1410" y="620" />
+        <omgdi:waypoint x="1390" y="620" />
+        <omgdi:waypoint x="1405" y="620" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1gxpw5b_di" bpmnElement="Flow_1gxpw5b">
-        <omgdi:waypoint x="1510" y="620" />
-        <omgdi:waypoint x="1572" y="620" />
+        <omgdi:waypoint x="1570" y="620" />
+        <omgdi:waypoint x="1592" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_InformationReached_di" bpmnElement="Flow_InformationReached">
+        <omgdi:waypoint x="1090" y="620" />
+        <omgdi:waypoint x="1110" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WaitForInformation_di" bpmnElement="Flow_WaitForInformation">
+        <omgdi:waypoint x="1065" y="645" />
+        <omgdi:waypoint x="1065" y="705" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_InformationClearCheck_di" bpmnElement="Flow_InformationClearCheck">
+        <omgdi:waypoint x="1083" y="723" />
+        <omgdi:waypoint x="1100" y="723" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_InformationCleared_di" bpmnElement="Flow_InformationCleared">
+        <omgdi:waypoint x="1150" y="723" />
+        <omgdi:waypoint x="1570" y="747" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_InformationNotCleared_di" bpmnElement="Flow_InformationNotCleared">
+        <omgdi:waypoint x="1125" y="698" />
+        <omgdi:waypoint x="1125" y="670" />
+        <omgdi:waypoint x="1065" y="670" />
+        <omgdi:waypoint x="1065" y="645" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_StateReached_di" bpmnElement="Flow_StateReached">
+        <omgdi:waypoint x="1275" y="620" />
+        <omgdi:waypoint x="1290" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WaitForState_di" bpmnElement="Flow_WaitForState">
+        <omgdi:waypoint x="1250" y="645" />
+        <omgdi:waypoint x="1250" y="705" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_StateClearCheck_di" bpmnElement="Flow_StateClearCheck">
+        <omgdi:waypoint x="1268" y="723" />
+        <omgdi:waypoint x="1285" y="723" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_StateCleared_di" bpmnElement="Flow_StateCleared">
+        <omgdi:waypoint x="1335" y="723" />
+        <omgdi:waypoint x="1570" y="747" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_StateNotCleared_di" bpmnElement="Flow_StateNotCleared">
+        <omgdi:waypoint x="1310" y="698" />
+        <omgdi:waypoint x="1310" y="670" />
+        <omgdi:waypoint x="1250" y="670" />
+        <omgdi:waypoint x="1250" y="645" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_OperationalReached_di" bpmnElement="Flow_OperationalReached">
+        <omgdi:waypoint x="1455" y="620" />
+        <omgdi:waypoint x="1470" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WaitForOperational_di" bpmnElement="Flow_WaitForOperational">
+        <omgdi:waypoint x="1430" y="645" />
+        <omgdi:waypoint x="1430" y="705" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_OperationalClearCheck_di" bpmnElement="Flow_OperationalClearCheck">
+        <omgdi:waypoint x="1448" y="723" />
+        <omgdi:waypoint x="1465" y="723" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_OperationalCleared_di" bpmnElement="Flow_OperationalCleared">
+        <omgdi:waypoint x="1515" y="723" />
+        <omgdi:waypoint x="1570" y="747" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_OperationalNotCleared_di" bpmnElement="Flow_OperationalNotCleared">
+        <omgdi:waypoint x="1490" y="698" />
+        <omgdi:waypoint x="1490" y="670" />
+        <omgdi:waypoint x="1430" y="670" />
+        <omgdi:waypoint x="1430" y="645" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0yv9yn7_di" bpmnElement="Flow_0yv9yn7">
         <omgdi:waypoint x="288" y="620" />

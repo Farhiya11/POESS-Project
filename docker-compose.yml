@@ -8,6 +8,7 @@ services:
       SIDDHI_URL: http://siddhi:7071/customer
       SIDDHI_DCR_URL: http://siddhi:7074/customer
       EVENT_SINK_URL: http://siddhi:7076/events
+      PREPAREDNESS_WARNING_POLICY_URL: http://communication:5001/forecast_refresh
     depends_on:
       communication:
         condition: service_healthy
@@ -21,13 +22,18 @@ services:
       - "5001:5001"
     volumes:
       - ./pais/bpmn/microservice:/bpmn:ro
+      - preparedness_warning_state:/data
     environment:
       ZEEBE_ADDRESS: zeebe:26500
       BPMN_FILE: /bpmn/food_order.bpmn
+      PREPAREDNESS_WARNING_BPMN_FILE: "${PREPAREDNESS_WARNING_BPMN_FILE:-/bpmn/Disaster_Attention_Protocol_camunda.bpmn}"
+      PREPAREDNESS_WARNING_PROCESS_ID: "${PREPAREDNESS_WARNING_PROCESS_ID:-Process_0q7dfku}"
       SIDDHI_CALLBACK_URL: http://siddhi:7072/middleman
       DCR_SIDDHI_CALLBACK_URL: http://siddhi:7075/middleman
       DCR_SERVICE_URL: http://microservice:5001
       DCR_GRAPH_TITLE: "${DCR_GRAPH_TITLE:-}"
+      PREPAREDNESS_WARNING_POLICY_JSON: "${PREPAREDNESS_WARNING_POLICY_JSON:-}"
+      PREPAREDNESS_WARNING_STATE_FILE: /data/preparedness_warning_episodes.json
     depends_on:
       zeebe:
         condition: service_healthy
@@ -161,6 +167,8 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+volumes:
+  preparedness_warning_state:
   # event_logs_service:
   #   build: ./event_logs_service/service
   #   container_name: event_logs_service-service

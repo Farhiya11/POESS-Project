@@ -43,7 +43,7 @@ C:.
 - `pais/dcr/microservice` communicates with DCR Graph.
 - `event_logs_service/service` stores JSON and XES process logs.
 
-## Flood CEP input
+## Preparedness warning policy
 
 `FloodDecisionApp.siddhi` accepts the API adapter's flat DMI events at
 `POST http://siddhi:7076/events`. Set the adapter's `EVENT_SINK_URL` to that
@@ -51,13 +51,49 @@ URL (or `http://localhost:7076/events` when posting from the host). The input
 contract is `WaterLevelObserved` or `SeaLevelForecasted`, with the fields
 defined by the adapter event dataclasses.
 
-The app currently logs these source events, preserving their flat DMI fields
-in the event-log payload. It also contains separate storm-surge and forecast
-decision paths, but both policy gates are deliberately closed (`1 == 0`).
-They must not be enabled until domain-approved thresholds, lead-time policy,
-and stable incident/case identifiers are selected. The forecast-warning
-process endpoint is also not implemented in the current integration service,
-so no flood PAIS commands are emitted by this app yet.
+The app logs source events with their flat DMI fields. Its Siddhi storm-surge
+and forecast gates remain deliberately closed (`1 == 0`); the API adapter
+separately sends each complete forecast refresh to
+`POST http://communication:5001/forecast_refresh`.
+
+Set `PREPAREDNESS_WARNING_POLICY_JSON` to enable the policy. Each monitored
+location requires a `critical_sea_level_cm` value; the 36-hour horizon and
+6/4/2-hour preparedness cutoffs default to the supplied domain values and can
+also be overridden:
+
+```json
+{
+  "forecast_horizon_hours": 36,
+  "information_lead_hours": 6,
+  "state_lead_hours": 4,
+  "operational_lead_hours": 2,
+  "locations": {
+    "DMI_LOCATION_ID": {
+      "critical_sea_level_cm": "<approved threshold in cm>"
+    }
+  }
+}
+```
+
+Replace the example threshold with an approved value for each DMI location;
+the service does not provide a guessed threshold. Configure the threshold in
+the same units and reference basis as the adapter's `sea_level_cm` forecasts.
+An unset policy disables preparedness-warning process starts, while malformed
+configuration or an unconfigured location is reported as an error. Each complete refresh
+selects the highest preparedness level indicated by any forecast in the
+configured horizon.
+
+The integration deploys both `BPMN_FILE` (food orders) and
+`PREPAREDNESS_WARNING_BPMN_FILE` (disaster attention). The disaster process ID
+defaults to `Process_0q7dfku` and can be overridden with
+`PREPAREDNESS_WARNING_PROCESS_ID`. Active case IDs, process-instance keys, and
+preparedness levels persist in the `preparedness_warning_state` Docker volume at
+`/data/preparedness_warning_episodes.json`. A case ID and process
+instance are reused while an alert episode remains active. Level updates are
+correlated to that case, and the BPMN waits for later preparedness levels or
+for an alert-clear update. Preparedness worker actions, including operational
+notice, are currently simulations; no public warning or evacuation is
+automatically performed.
 
 ## Prerequisites    
 

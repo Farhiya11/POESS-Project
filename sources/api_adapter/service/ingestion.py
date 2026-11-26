@@ -37,8 +37,17 @@ class IngestionService:
         return IngestionResult(sent=sent, skipped_duplicates=skipped)
 
     def ingest_forecast(self) -> IngestionResult:
+        forecasts = [
+            forecast.to_event()
+            for forecast in self.client.forecast(
+                FORECAST_LOCATION_ID, FORECAST_LON, FORECAST_LAT
+            )
+        ]
+        # Send the complete refresh before individual events so the policy can clear
+        # an episode only after a successful, complete DMI response.
+        self.forwarder.send_forecast_refresh(FORECAST_LOCATION_ID, forecasts)
         sent = 0
-        for fc in self.client.forecast(FORECAST_LOCATION_ID, FORECAST_LON, FORECAST_LAT):
-            self.forwarder.send(fc.to_event())
+        for forecast in forecasts:
+            self.forwarder.send(forecast)
             sent += 1
         return IngestionResult(sent=sent)
