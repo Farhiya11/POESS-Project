@@ -1,0 +1,319 @@
+@App:name("PreparednessDecisionApp")
+define function evaluatePreparednessRefresh[javascript] return string {
+    var refreshId = data[0];
+    var locationId = data[1];
+    var forecastsJson = data[2];
+    var policyJson = data[3];
+
+    function result(
+            status, level, leadTime, forecastValue, threshold, reason,
+            warningCategory, categoryLeadTime, categoryForecastValue) {
+        return JSON.stringify({
+            status: status,
+            refresh_id: refreshId,
+            location_id: locationId,
+            alert_level: level,
+            time_to_critical_hours: leadTime,
+            forecast_value_cm: forecastValue,
+            critical_level_cm: threshold,
+            dmi_warning_category: warningCategory || "NONE",
+            category_time_to_critical_hours: categoryLeadTime,
+            category_forecast_value_cm: categoryForecastValue,
+            reason: reason
+        });
+    }
+
+    if (typeof refreshId !== "string" || refreshId.trim() === "" ||
+            typeof locationId !== "string" || locationId.trim() === "") {
+        return result("input_error", "NONE", null, null, null,
+            "refresh_id_and_location_id_are_required");
+    }
+    refreshId = refreshId.trim();
+    locationId = locationId.trim();
+    if (policyJson === null || String(policyJson).trim() === "") {
+        return result("disabled", "NONE", null, null, null, "policy_disabled");
+    }
+
+    var policy;
+    try {
+        policy = JSON.parse(policyJson);
+    } catch (error) {
+        return result("configuration_error", "NONE", null, null, null,
+            "invalid_policy_json");
+    }
+    var forecasts;
+    try {
+        forecasts = JSON.parse(forecastsJson);
+    } catch (error) {
+        return result("input_error", "NONE", null, null, null,
+            "invalid_forecasts_json");
+    }
+
+    if (policy === null || typeof policy !== "object" || Array.isArray(policy) ||
+            policy.regions === null || typeof policy.regions !== "object" ||
+            Array.isArray(policy.regions) || Object.keys(policy.regions).length === 0 ||
+            policy.locations === null || typeof policy.locations !== "object" ||
+            Array.isArray(policy.locations) || Object.keys(policy.locations).length === 0) {
+        return result("configuration_error", "NONE", null, null, null,
+            "regions_and_locations_configuration_required");
+    }
+    var normalizedRegions = {};
+    var regionKeys = Object.keys(policy.regions);
+    for (var regionIndex = 0; regionIndex < regionKeys.length; regionIndex++) {
+        var configuredRegionKey = regionKeys[regionIndex];
+        if (configuredRegionKey.trim() === "") {
+            return result("configuration_error", "NONE", null, null, null,
+                "region_threshold_keys_must_not_be_empty");
+        }
+        var normalizedRegionKey = configuredRegionKey.trim();
+        if (Object.prototype.hasOwnProperty.call(normalizedRegions, normalizedRegionKey)) {
+            return result("configuration_error", "NONE", null, null, null,
+                "duplicate_normalized_region_threshold");
+        }
+        var regionSettings = policy.regions[configuredRegionKey];
+        if (regionSettings === null || typeof regionSettings !== "object" ||
+                Array.isArray(regionSettings) ||
+                typeof regionSettings.category_1_min_cm !== "number" ||
+                !isFinite(regionSettings.category_1_min_cm) ||
+                typeof regionSettings.category_2_min_cm !== "number" ||
+                !isFinite(regionSettings.category_2_min_cm) ||
+                typeof regionSettings.category_3_above_cm !== "number" ||
+                !isFinite(regionSettings.category_3_above_cm) ||
+                regionSettings.category_1_min_cm >= regionSettings.category_2_min_cm ||
+                regionSettings.category_2_min_cm >= regionSettings.category_3_above_cm) {
+            return result("configuration_error", "NONE", null, null, null,
+                "regional_category_thresholds_must_be_finite_and_increasing");
+        }
+        normalizedRegions[normalizedRegionKey] = regionSettings;
+    }
+
+    var configuredLocation = null;
+    var configuredRegion = null;
+    var normalizedLocationKeys = {};
+    var locationKeys = Object.keys(policy.locations);
+    for (var locationIndex = 0; locationIndex < locationKeys.length; locationIndex++) {
+        var configuredKey = locationKeys[locationIndex];
+        if (configuredKey.trim() === "") {
+            return result("configuration_error", "NONE", null, null, null,
+                "location_threshold_keys_must_not_be_empty");
+        }
+        var normalizedKey = configuredKey.trim();
+        if (Object.prototype.hasOwnProperty.call(normalizedLocationKeys, normalizedKey)) {
+            return result("configuration_error", "NONE", null, null, null,
+                "duplicate_normalized_location_threshold");
+        }
+        normalizedLocationKeys[normalizedKey] = true;
+        var locationSettings = policy.locations[configuredKey];
+        if (locationSettings === null || typeof locationSettings !== "object" ||
+                Array.isArray(locationSettings) ||
+                typeof locationSettings.region !== "string" ||
+                locationSettings.region.trim() === "") {
+            return result("configuration_error", "NONE", null, null, null,
+                "location_region_is_required");
+        }
+        var regionName = locationSettings.region.trim();
+        if (!Object.prototype.hasOwnProperty.call(normalizedRegions, regionName)) {
+            return result("configuration_error", "NONE", null, null, null,
+                "location_region_thresholds_not_configured");
+        }
+        if (normalizedKey === locationId) {
+            if (configuredLocation !== null) {
+                return result("configuration_error", "NONE", null, null, null,
+                    "duplicate_normalized_location_threshold");
+            }
+            configuredLocation = locationSettings;
+            configuredRegion = normalizedRegions[regionName];
+        }
+    }
+    if (configuredLocation === null) {
+        return result("configuration_error", "NONE", null, null, null,
+            "location_threshold_not_configured");
+    }
+    var threshold = configuredRegion.category_1_min_cm;
+
+    var horizon = policy.forecast_horizon_hours === undefined
+        ? 36 : policy.forecast_horizon_hours;
+    var information = policy.information_lead_hours === undefined
+        ? 6 : policy.information_lead_hours;
+    var state = policy.state_lead_hours === undefined
+        ? 4 : policy.state_lead_hours;
+    var operational = policy.operational_lead_hours === undefined
+        ? 2 : policy.operational_lead_hours;
+    if (typeof horizon !== "number" || !isFinite(horizon) ||
+            typeof information !== "number" || !isFinite(information) ||
+            typeof state !== "number" || !isFinite(state) ||
+            typeof operational !== "number" || !isFinite(operational) ||
+            horizon < information || information < state || state < operational ||
+            operational < 0) {
+        return result("configuration_error", "NONE", null, null, threshold,
+            "invalid_forecast_horizon_or_lead_time_cutoffs");
+    }
+    if (!Array.isArray(forecasts)) {
+        return result("input_error", "NONE", null, null, threshold,
+            "forecasts_must_be_an_array");
+    }
+
+    var levels = ["NONE", "INTERNAL", "INFORMATION", "STATE", "OPERATIONAL"];
+    var bestRank = 0;
+    var bestLead = null;
+    var bestValue = null;
+    var warningCategories = ["NONE", "CATEGORY_1", "CATEGORY_2", "CATEGORY_3"];
+    var bestCategoryRank = 0;
+    var bestCategoryLead = null;
+    var bestCategoryValue = null;
+    for (var index = 0; index < forecasts.length; index++) {
+        var forecast = forecasts[index];
+        if (forecast === null || typeof forecast !== "object" ||
+                Array.isArray(forecast) ||
+                (forecast.location_id !== undefined &&
+                    forecast.location_id !== locationId) ||
+                typeof forecast.sea_level_cm !== "number" ||
+                !isFinite(forecast.sea_level_cm) ||
+                typeof forecast.lead_time_hours !== "number" ||
+                !isFinite(forecast.lead_time_hours)) {
+            return result("input_error", "NONE", null, null, threshold,
+                "forecasts_require_finite_numeric_values");
+        }
+
+        var lead = forecast.lead_time_hours;
+        var value = forecast.sea_level_cm;
+        if (lead < 0 || lead > horizon) {
+            continue;
+        }
+
+        var categoryRank = 0;
+        if (value > configuredRegion.category_3_above_cm) {
+            categoryRank = 3;
+        } else if (value >= configuredRegion.category_2_min_cm) {
+            categoryRank = 2;
+        } else if (value >= configuredRegion.category_1_min_cm) {
+            categoryRank = 1;
+        }
+        if (categoryRank > 0 && (categoryRank > bestCategoryRank ||
+                (categoryRank === bestCategoryRank &&
+                    (bestCategoryLead === null || lead < bestCategoryLead)) ||
+                (categoryRank === bestCategoryRank && lead === bestCategoryLead &&
+                    value > bestCategoryValue))) {
+            bestCategoryRank = categoryRank;
+            bestCategoryLead = lead;
+            bestCategoryValue = value;
+        }
+
+        if (value < threshold) {
+            continue;
+        }
+        var rank = 1;
+        if (lead <= information) {
+            rank = 2;
+        }
+        if (lead <= state) {
+            rank = 3;
+        }
+        if (lead <= operational) {
+            rank = 4;
+        }
+        if (rank > bestRank ||
+                (rank === bestRank && (bestLead === null || lead < bestLead)) ||
+                (rank === bestRank && lead === bestLead && value > bestValue)) {
+            bestRank = rank;
+            bestLead = lead;
+            bestValue = value;
+        }
+    }
+
+    var warningCategory = warningCategories[bestCategoryRank];
+    if (bestRank === 0) {
+        return result("decision", "NONE", null, null, threshold,
+            "no_threshold_exceedance_within_forecast_horizon",
+            warningCategory, bestCategoryLead, bestCategoryValue);
+    }
+    var level = levels[bestRank];
+    return result("decision", level, bestLead, bestValue, threshold,
+        "threshold_exceeded_within_" + level.toLowerCase() + "_window",
+        warningCategory, bestCategoryLead, bestCategoryValue);
+};
+
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7076/water-level-observations",
+    @map(type='json')
+)
+define stream WaterLevelObservationInput(
+    event_type string,
+    station_id string,
+    observed_at string,
+    sea_level_cm double,
+    parameter_id string,
+    source_system string,
+    ingested_at string
+);
+
+@sink(
+    type='http',
+    publisher.url='http://event_logs_service:5010/log',
+    method='POST',
+    @map(type='json')
+)
+define stream WaterLevelObservationLog(
+    event string,
+    case_id string,
+    timestamp string,
+    role string,
+    station_id string,
+    observed_at string,
+    sea_level_cm double,
+    parameter_id string,
+    source_system string,
+    ingested_at string
+);
+
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7077/forecast-refreshes",
+    @map(type='json')
+)
+define stream ForecastRefreshInput(
+    refresh_id string,
+    location_id string,
+    forecasts_json string,
+    policy_json string
+);
+
+@sink(
+    type='http',
+    publisher.url='http://communication:5001/preparedness_decision',
+    method='POST',
+    @map(type='json')
+)
+define stream PreparednessDecisionOutput(
+    decision_json string
+);
+
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7073/health",
+    @map(type='json')
+)
+define stream HealthCheckStream(status string);
+
+from ForecastRefreshInput
+select evaluatePreparednessRefresh(
+           refresh_id,
+           location_id,
+           forecasts_json,
+           policy_json
+       ) as decision_json
+insert into PreparednessDecisionOutput;
+
+from WaterLevelObservationInput
+select "WaterLevelObserved" as event,
+       "DMI-water-level-monitoring" as case_id,
+       observed_at as timestamp,
+       "DMI" as role,
+       station_id,
+       observed_at,
+       sea_level_cm,
+       parameter_id,
+       source_system,
+       ingested_at
+insert into WaterLevelObservationLog;

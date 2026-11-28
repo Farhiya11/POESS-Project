@@ -187,11 +187,12 @@
       <exclusiveGateway id="Gateway_OperationalLevel" default="Flow_WaitForOperational">
         <incoming>Flow_OperationalNotCleared</incoming>
         <incoming>Flow_1ozhuvb</incoming>
+        <incoming>Flow_1gxpw5b</incoming>
         <outgoing>Flow_OperationalReached</outgoing>
         <outgoing>Flow_WaitForOperational</outgoing>
       </exclusiveGateway>
       <sequenceFlow id="Flow_OperationalReached" sourceRef="Gateway_OperationalLevel" targetRef="Activity_0qi7v05">
-        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "OPERATIONAL"</conditionExpression>
+        <conditionExpression xsi:type="tFormalExpression">= alertLevel = "OPERATIONAL" and operationalPreparednessCompleted = false</conditionExpression>
       </sequenceFlow>
       <sequenceFlow id="Flow_WaitForOperational" sourceRef="Gateway_OperationalLevel" targetRef="Event_WaitForOperational" />
       <serviceTask id="Activity_0qi7v05" name="Operational preparedness">
@@ -201,15 +202,12 @@
         <incoming>Flow_OperationalReached</incoming>
         <outgoing>Flow_1gxpw5b</outgoing>
       </serviceTask>
-      <endEvent id="Event_1t54q9i">
-        <incoming>Flow_1gxpw5b</incoming>
-      </endEvent>
       <endEvent id="Event_AlertCleared" name="Alert cleared">
         <incoming>Flow_InformationCleared</incoming>
         <incoming>Flow_StateCleared</incoming>
         <incoming>Flow_OperationalCleared</incoming>
       </endEvent>
-      <sequenceFlow id="Flow_1gxpw5b" sourceRef="Activity_0qi7v05" targetRef="Event_1t54q9i" />
+      <sequenceFlow id="Flow_1gxpw5b" sourceRef="Activity_0qi7v05" targetRef="Gateway_OperationalLevel" />
       <sequenceFlow id="Flow_07ubxgo" sourceRef="Activity_0xzf0jk" targetRef="Gateway_InformationLevel" />
       <sequenceFlow id="Flow_1vtdlf7" sourceRef="Activity_0ugcx6k" targetRef="Gateway_StateLevel" />
       <sequenceFlow id="Flow_1ozhuvb" sourceRef="Activity_00ng8q5" targetRef="Gateway_OperationalLevel" />

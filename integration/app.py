@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import os
 import threading
 from dataclasses import replace
@@ -11,13 +12,12 @@ from flask import Flask, jsonify, request
 from pyzeebe import Job, ZeebeClient, ZeebeWorker
 
 from dcr_integration import dcr_bp
-from preparedness_policy import (
+from preparedness_state import (
+    DMI_WARNING_CATEGORIES,
     PREPAREDNESS_LEVEL_RANK,
     AlertLevel,
     PreparednessEpisodeStore,
-    PreparednessPolicyConfigurationError,
     PreparednessWarningDecision,
-    PreparednessWarningPolicy,
 )
 
 ZEEBE_ADDRESS = os.getenv("ZEEBE_ADDRESS", "zeebe:26500")
@@ -90,10 +90,12 @@ def start_preparedness_warning_process(
         if process_instance_key is not None:
             return process_instance_key
 
+        variables = decision_variables(case_id, refresh_id, decision)
+        variables["operationalPreparednessCompleted"] = False
         process_instance_key = run_async(
             client.run_process(
                 PREPAREDNESS_WARNING_PROCESS_ID,
-                variables=decision_variables(case_id, refresh_id, decision),
+                variables=variables,
             )
         )
         process_instance_key = str(process_instance_key)
@@ -115,6 +117,9 @@ def decision_variables(
         "caseId": case_id,
         "criticalLevel": decision.critical_level_cm,
         "decisionReason": decision.reason,
+        "dmiWarningCategory": decision.dmi_warning_category,
+        "categoryTimeToCriticalHours": decision.category_time_to_critical_hours,
+        "categoryForecastValueCm": decision.category_forecast_value_cm,
         "forecastValueCm": decision.forecast_value_cm,
         "locationId": decision.location_id,
         "refreshId": refresh_id,
@@ -135,15 +140,19 @@ def publish_alert_level(
     )
 
 
-def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
+def handle_preparedness_decision(decision, refresh_id):
     with alert_process_start_lock:
-        try:
-            decision = policy.evaluate_refresh(location_id, forecasts)
-        except PreparednessPolicyConfigurationError:
-            app.logger.exception("Invalid preparedness warning policy configuration")
-            return jsonify({"error": "Policy is not configured for this location"}), 503
-        except ValueError as error:
-            return jsonify({"error": str(error)}), 400
+        location_id = decision.location_id
+        if preparedness_episode_store.has_processed_refresh(
+            location_id, refresh_id
+        ):
+            return jsonify(
+                {
+                    "status": "duplicate",
+                    "location_id": location_id,
+                    "refresh_id": refresh_id,
+                }
+            ), 200
 
         previous_case_id = preparedness_episode_store.case_id_for(location_id)
         if decision.alert_level is AlertLevel.NONE:
@@ -170,8 +179,11 @@ def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
                         ), 503
             try:
                 preparedness_episode_store.update_episode(location_id, False)
+                preparedness_episode_store.record_processed_refresh(
+                    location_id, refresh_id
+                )
             except RuntimeError:
-                app.logger.exception("Unable to clear alert episode state")
+                app.logger.exception("Unable to persist cleared preparedness state")
                 return jsonify({"error": "Alert state is unavailable"}), 503
             return jsonify(
                 {
@@ -180,6 +192,7 @@ def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
                         "cleared" if previous_case_id is not None else "none"
                     ),
                     "alert_level": AlertLevel.NONE.value,
+                    "dmi_warning_category": decision.dmi_warning_category,
                     "case_id": previous_case_id,
                     "refresh_id": refresh_id,
                     "time_to_critical_hours": None,
@@ -193,6 +206,9 @@ def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
             if case_id is None:
                 raise RuntimeError("Unable to create alert episode")
             previous_level = preparedness_episode_store.alert_level_for(case_id)
+            previous_category = preparedness_episode_store.dmi_warning_category_for(
+                case_id
+            )
             alert_level = decision.alert_level
             if (
                 previous_level is not None
@@ -218,9 +234,28 @@ def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
                     case_id, process_instance_key
                 )
                 preparedness_episode_store.record_alert_level(case_id, alert_level)
-            elif previous_level is None or alert_level is not previous_level:
+                if decision.dmi_warning_category != "NONE":
+                    preparedness_episode_store.record_dmi_warning_category(
+                        case_id, decision.dmi_warning_category
+                    )
+            elif (
+                previous_level is None
+                or alert_level is not previous_level
+                or decision.dmi_warning_category != previous_category
+            ):
                 publish_alert_level(case_id, refresh_id, decision)
                 preparedness_episode_store.record_alert_level(case_id, alert_level)
+                if decision.dmi_warning_category != "NONE":
+                    preparedness_episode_store.record_dmi_warning_category(
+                        case_id, decision.dmi_warning_category
+                    )
+            elif decision.dmi_warning_category != "NONE":
+                preparedness_episode_store.record_dmi_warning_category(
+                    case_id, decision.dmi_warning_category
+                )
+            preparedness_episode_store.record_processed_refresh(
+                location_id, refresh_id
+            )
         except RuntimeError:
             app.logger.exception(
                 "Unable to update preparedness warning state or process"
@@ -250,6 +285,7 @@ def handle_forecast_refresh(location_id, refresh_id, forecasts, policy):
                 "status": "warning",
                 "transition": transition,
                 "alert_level": decision.alert_level.value,
+                "dmi_warning_category": decision.dmi_warning_category,
                 "case_id": case_id,
                 "process_instance_key": process_instance_key,
                 "refresh_id": refresh_id,
@@ -268,39 +304,131 @@ def health():
     return jsonify({"status": "ok"})
 
 
-@app.post("/forecast_refresh")
-def forecast_refresh():
+@app.post("/preparedness_decision")
+def preparedness_decision():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "JSON data is required"}), 400
 
-    location_id = data.get("location_id")
-    refresh_id = data.get("refresh_id")
-    forecasts = data.get("forecasts")
-    if not isinstance(location_id, str) or not location_id.strip():
-        return jsonify({"error": "location_id is required"}), 400
-    location_id = location_id.strip()
-    if not isinstance(refresh_id, str) or not refresh_id:
-        return jsonify({"error": "refresh_id is required"}), 400
-    if not isinstance(forecasts, list) or not all(
-        isinstance(forecast, dict) for forecast in forecasts
+    decision_json = data.get("decision_json")
+    if not isinstance(decision_json, str):
+        return jsonify({"error": "decision_json is required"}), 400
+    try:
+        payload = json.loads(decision_json)
+    except json.JSONDecodeError:
+        app.logger.error("Siddhi sent malformed decision JSON")
+        return jsonify({"error": "decision_json must contain valid JSON"}), 400
+    if not isinstance(payload, dict):
+        return jsonify({"error": "decision_json must contain an object"}), 400
+
+    status = payload.get("status")
+    if status == "disabled":
+        return jsonify(
+            {
+                "status": "disabled",
+                "refresh_id": payload.get("refresh_id"),
+            }
+        ), 200
+    if status in ("configuration_error", "input_error"):
+        app.logger.error(
+            "Siddhi rejected preparedness refresh %s: %s",
+            payload.get("refresh_id"),
+            payload.get("reason"),
+        )
+        return jsonify(
+            {
+                "error": "Siddhi could not evaluate the preparedness refresh",
+                "reason": payload.get("reason"),
+            }
+        ), 503 if status == "configuration_error" else 400
+    if status != "decision":
+        return jsonify({"error": "unsupported Siddhi decision status"}), 400
+
+    location_id = payload.get("location_id")
+    refresh_id = payload.get("refresh_id")
+    reason = payload.get("reason")
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (location_id, refresh_id, reason)
     ):
-        return jsonify({"error": "forecasts must be a list of forecast objects"}), 400
-    if any(
-        forecast.get("location_id") not in (None, location_id)
-        for forecast in forecasts
-    ):
-        return jsonify({"error": "all forecasts must match location_id"}), 400
+        return jsonify(
+            {"error": "location_id, refresh_id, and reason are required"}
+        ), 400
 
     try:
-        policy = PreparednessWarningPolicy.from_environment()
-    except PreparednessPolicyConfigurationError:
-        app.logger.exception("Invalid preparedness warning policy configuration")
-        return jsonify({"error": "Policy configuration is invalid"}), 503
+        alert_level = AlertLevel(payload.get("alert_level"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "alert_level is invalid"}), 400
+    dmi_warning_category = payload.get("dmi_warning_category")
+    if (
+        not isinstance(dmi_warning_category, str)
+        or dmi_warning_category not in DMI_WARNING_CATEGORIES
+    ):
+        return jsonify({"error": "dmi_warning_category is invalid"}), 400
 
-    if not policy.enabled:
-        return jsonify({"status": "disabled", "refresh_id": refresh_id}), 200
-    return handle_forecast_refresh(location_id, refresh_id, forecasts, policy)
+    optional_values = {}
+    for field in (
+        "time_to_critical_hours",
+        "forecast_value_cm",
+        "critical_level_cm",
+        "category_time_to_critical_hours",
+        "category_forecast_value_cm",
+    ):
+        value = payload.get(field)
+        if value is None:
+            optional_values[field] = None
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return jsonify({"error": f"{field} must be a finite number or null"}), 400
+        try:
+            finite_value = float(value)
+        except OverflowError:
+            return jsonify({"error": f"{field} must be a finite number or null"}), 400
+        if not math.isfinite(finite_value):
+            return jsonify({"error": f"{field} must be a finite number or null"}), 400
+        optional_values[field] = finite_value
+    if optional_values["critical_level_cm"] is None:
+        return jsonify({"error": "critical_level_cm is required for a decision"}), 400
+    if alert_level is AlertLevel.NONE:
+        if (
+            optional_values["time_to_critical_hours"] is not None
+            or optional_values["forecast_value_cm"] is not None
+            or dmi_warning_category != "NONE"
+        ):
+            return jsonify(
+                {"error": "NONE decisions cannot contain warning evidence"}
+            ), 400
+    else:
+        if (
+            optional_values["time_to_critical_hours"] is None
+            or optional_values["forecast_value_cm"] is None
+        ):
+            return jsonify(
+                {"error": "preparedness decisions require forecast evidence"}
+            ), 400
+        if (
+            dmi_warning_category == "NONE"
+            or optional_values["category_time_to_critical_hours"] is None
+            or optional_values["category_forecast_value_cm"] is None
+        ):
+            return jsonify(
+                {"error": "active warning decisions require DMI category evidence"}
+            ), 400
+
+    decision = PreparednessWarningDecision(
+        location_id=location_id.strip(),
+        alert_level=alert_level,
+        time_to_critical_hours=optional_values["time_to_critical_hours"],
+        forecast_value_cm=optional_values["forecast_value_cm"],
+        critical_level_cm=optional_values["critical_level_cm"],
+        dmi_warning_category=dmi_warning_category,
+        category_time_to_critical_hours=optional_values[
+            "category_time_to_critical_hours"
+        ],
+        category_forecast_value_cm=optional_values["category_forecast_value_cm"],
+        reason=reason,
+    )
+    return handle_preparedness_decision(decision, refresh_id.strip())
 
 
 @app.post("/place_order")
@@ -430,7 +558,7 @@ async def deploy_and_work():
             alert_deployment = await candidate_client.deploy_process(
                 PREPAREDNESS_WARNING_BPMN_FILE
             )
-            print(f"[Camunda] Coastal water-level BPMN deployed: {alert_deployment}", flush=True)
+            print(f"[Camunda] Preparedness warning BPMN deployed: {alert_deployment}", flush=True)
             client = candidate_client
             break
         except Exception as error:

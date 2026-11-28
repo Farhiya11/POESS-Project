@@ -1,91 +1,87 @@
-import hashlib
 import json
-from collections import deque
 from typing import Any
+from uuid import uuid4
 
 import requests
 
 from constants import (
-    EVENT_SINK_TIMEOUT_SECONDS,
-    EVENT_SINK_URL,
-    PREPAREDNESS_WARNING_POLICY_URL,
+    OBSERVATION_SINK_TIMEOUT_SECONDS,
+    PREPAREDNESS_DECISION_SINK_URL,
+    PREPAREDNESS_DECISION_TIMEOUT_SECONDS,
+    PREPAREDNESS_WARNING_POLICY_JSON,
+    WATER_LEVEL_OBSERVATION_SINK_URL,
 )
 
 
-class ForwardError(RuntimeError):
-    """The CEP sink did not accept an event."""
+class DecisionSinkError(RuntimeError):
+    """Siddhi did not accept a forecast refresh."""
 
 
-class EventForwarder:
-    """Posts flat DMI events to the Siddhi HTTP source."""
+class PreparednessDecisionForwarder:
+    """Posts complete DMI forecast refreshes to Siddhi for evaluation."""
 
     def __init__(
         self,
-        sink_url: str = EVENT_SINK_URL,
+        decision_sink_url: str = PREPAREDNESS_DECISION_SINK_URL,
         session: requests.Session | None = None,
-        history_size: int = 500,
+        policy_json: str = PREPAREDNESS_WARNING_POLICY_JSON,
     ) -> None:
-        self.sink_url = sink_url
         self.session = session or requests.Session()
-        self.history: deque[dict[str, Any]] = deque(maxlen=history_size)
-
-    def send(self, event: dict[str, Any]) -> None:
-        try:
-            resp = self.session.post(self.sink_url, json=event, timeout=EVENT_SINK_TIMEOUT_SECONDS)
-            resp.raise_for_status()
-        except requests.RequestException as exc:
-            raise ForwardError(f"sink {self.sink_url} rejected {event.get('event_type')}: {exc}") from exc
-        self.history.append(event)
+        self.decision_sink_url = decision_sink_url
+        self.policy_json = policy_json
 
     def send_forecast_refresh(
         self, location_id: str, forecasts: list[dict[str, Any]]
     ) -> None:
-        identity_fields = (
-            "event_type",
-            "location_id",
-            "collection",
-            "forecast_for",
-            "sea_level_cm",
-            "lead_time_hours",
-            "lon",
-            "lat",
-            "source",
-        )
-        identity = [
-            {key: event.get(key) for key in identity_fields}
-            for event in forecasts
-        ]
-        identity.sort(
-            key=lambda event: (
-                str(event["forecast_for"]),
-                str(event["sea_level_cm"]),
-                str(event["lead_time_hours"]),
-            )
-        )
-        refresh_id = hashlib.sha256(
-            json.dumps(
-                {"location_id": location_id, "forecasts": identity},
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        ).hexdigest()
+        refresh_id = uuid4().hex
 
+        refresh = {
+            "refresh_id": refresh_id,
+            "location_id": location_id,
+            "forecasts_json": json.dumps(
+                forecasts, sort_keys=True, separators=(",", ":")
+            ),
+            "policy_json": self.policy_json,
+        }
         try:
             response = self.session.post(
-                PREPAREDNESS_WARNING_POLICY_URL,
-                json={
-                    "refresh_id": refresh_id,
-                    "location_id": location_id,
-                    "forecasts": forecasts,
-                },
-                timeout=EVENT_SINK_TIMEOUT_SECONDS,
+                self.decision_sink_url,
+                json=refresh,
+                timeout=PREPAREDNESS_DECISION_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise ForwardError(
-                f"forecast refresh sink {PREPAREDNESS_WARNING_POLICY_URL} rejected "
+            raise DecisionSinkError(
+                f"forecast refresh sink {self.decision_sink_url} rejected "
                 f"{location_id}: {exc}"
             ) from exc
 
-    def recent(self, limit: int) -> list[dict[str, Any]]:
-        return list(self.history)[-limit:]
+
+class ObservationSinkError(RuntimeError):
+    """Siddhi did not accept a measured water-level observation."""
+
+
+class WaterLevelObservationForwarder:
+    """Posts measured water levels to the Siddhi monitoring stream."""
+
+    def __init__(
+        self,
+        observation_sink_url: str = WATER_LEVEL_OBSERVATION_SINK_URL,
+        session: requests.Session | None = None,
+    ) -> None:
+        self.session = session or requests.Session()
+        self.observation_sink_url = observation_sink_url
+
+    def send_observation(self, observation: dict[str, Any]) -> None:
+        try:
+            response = self.session.post(
+                self.observation_sink_url,
+                json=observation,
+                timeout=OBSERVATION_SINK_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise ObservationSinkError(
+                f"water-level observation sink {self.observation_sink_url} "
+                f"rejected {observation.get('station_id')}: {exc}"
+            ) from exc

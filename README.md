@@ -43,23 +43,30 @@ C:.
 - `pais/dcr/microservice` communicates with DCR Graph.
 - `event_logs_service/service` stores JSON and XES process logs.
 
-## Preparedness warning policy
+## Preparedness warning decisions
 
-`FloodDecisionApp.siddhi` accepts the API adapter's flat DMI events at
-`POST http://siddhi:7076/events`. Set the adapter's `EVENT_SINK_URL` to that
-URL (or `http://localhost:7076/events` when posting from the host). The input
-contract is `WaterLevelObserved` or `SeaLevelForecasted`, with the fields
-defined by the adapter event dataclasses.
+The API adapter polls DMI for measured water levels every 10 minutes and sends
+each new observation to Siddhi at
+`POST http://siddhi:7076/water-level-observations`. Siddhi logs these readings
+to the event-log service for monitoring; they do not affect preparedness
+decisions. Forecasts are submitted separately as complete refreshes to
+`POST http://siddhi:7077/forecast-refreshes`. Siddhi evaluates each full
+refresh and sends one decision to
+`POST http://communication:5001/preparedness_decision`.
+The integration service does not evaluate forecast thresholds; it manages
+preparedness episodes and starts or updates the Camunda process.
+The Siddhi container installs the `siddhi-script-js` extension to run the
+refresh evaluator in the Siddhi application.
+`PREPAREDNESS_DECISION_SINK_URL` can override the adapter's default Siddhi
+refresh endpoint when running outside the Compose network.
+`WATER_LEVEL_OBSERVATION_SINK_URL` can override the water-level monitoring
+endpoint.
 
-The app logs source events with their flat DMI fields. Its Siddhi storm-surge
-and forecast gates remain deliberately closed (`1 == 0`); the API adapter
-separately sends each complete forecast refresh to
-`POST http://communication:5001/forecast_refresh`.
-
-Set `PREPAREDNESS_WARNING_POLICY_JSON` to enable the policy. Each monitored
-location requires a `critical_sea_level_cm` value; the 36-hour horizon and
-6/4/2-hour preparedness cutoffs default to the supplied domain values and can
-also be overridden:
+The adapter's built-in `PREPAREDNESS_WARNING_POLICY_JSON` uses the supplied
+DMI regional thresholds for the configured Copenhagen forecast location.
+Override it to change region mappings or policy measures. It configures
+regional warning categories independently from the existing 36-hour forecast
+horizon and 6/4/2-hour preparedness cutoffs:
 
 ```json
 {
@@ -67,21 +74,51 @@ also be overridden:
   "information_lead_hours": 6,
   "state_lead_hours": 4,
   "operational_lead_hours": 2,
+  "regions": {
+    "inner_danish_waters": {
+      "category_1_min_cm": 125,
+      "category_2_min_cm": 140,
+      "category_3_above_cm": 160
+    },
+    "west_coast_jutland": {
+      "category_1_min_cm": 190,
+      "category_2_min_cm": 250,
+      "category_3_above_cm": 300
+    },
+    "wadden_sea": {
+      "category_1_min_cm": 240,
+      "category_2_min_cm": 300,
+      "category_3_above_cm": 400
+    }
+  },
   "locations": {
-    "DMI_LOCATION_ID": {
-      "critical_sea_level_cm": "<approved threshold in cm>"
+    "copenhagen": {
+      "region": "inner_danish_waters"
     }
   }
 }
 ```
 
-Replace the example threshold with an approved value for each DMI location;
-the service does not provide a guessed threshold. Configure the threshold in
-the same units and reference basis as the adapter's `sea_level_cm` forecasts.
-An unset policy disables preparedness-warning process starts, while malformed
-configuration or an unconfigured location is reported as an error. Each complete refresh
-selects the highest preparedness level indicated by any forecast in the
-configured horizon.
+The built-in policy has this shape. Map each additional monitored location to
+the appropriate region. The supplied
+overlapping endpoints are assigned to the more severe
+category: Category 2 starts at 140/250/300 cm and Category 3 is strictly above
+160/300/400 cm, respectively. Thresholds use the same units and reference
+basis as the adapter's `sea_level_cm` forecasts.
+An unset environment variable uses the built-in policy; setting it to an empty
+value disables preparedness-warning decisions.
+
+DMI warning category (`NONE`, `CATEGORY_1`, `CATEGORY_2`, or `CATEGORY_3`) is
+kept separate from preparedness level (`INTERNAL`, `INFORMATION`, `STATE`, or
+`OPERATIONAL`). Siddhi evaluates both for each complete forecast refresh.
+Category and its forecast evidence are passed to Camunda as the
+`dmiWarningCategory`, `categoryTimeToCriticalHours`, and
+`categoryForecastValueCm` process variables; category changes are delivered
+even when the preparedness level is unchanged. An unset policy environment
+variable uses the built-in measures; an explicitly empty policy disables
+preparedness-warning decisions. Malformed configuration or an unconfigured
+location is reported as an error. The adapter sends the policy JSON to Siddhi
+with each refresh; the adapter does not evaluate it.
 
 The integration deploys both `BPMN_FILE` (food orders) and
 `PREPAREDNESS_WARNING_BPMN_FILE` (disaster attention). The disaster process ID
@@ -89,11 +126,12 @@ defaults to `Process_0q7dfku` and can be overridden with
 `PREPAREDNESS_WARNING_PROCESS_ID`. Active case IDs, process-instance keys, and
 preparedness levels persist in the `preparedness_warning_state` Docker volume at
 `/data/preparedness_warning_episodes.json`. A case ID and process
-instance are reused while an alert episode remains active. Level updates are
-correlated to that case, and the BPMN waits for later preparedness levels or
-for an alert-clear update. Preparedness worker actions, including operational
-notice, are currently simulations; no public warning or evacuation is
-automatically performed.
+instance are reused while an alert episode remains active. Preparedness-level
+and DMI-category updates are correlated to that case, and the BPMN waits for
+later preparedness levels, category updates, or an alert-clear update,
+including after the operational task has completed. Preparedness worker
+actions, including operational notice, are currently simulations; no public
+warning or evacuation is automatically performed.
 
 ## Prerequisites    
 
@@ -103,12 +141,25 @@ automatically performed.
 
 ## Configuration
 
-Set these variables before starting the stack if DCR is enabled:
+The preparedness/Camunda stack does not require DCR credentials:
+
+```powershell
+docker compose up --build -d
+```
+
+To enable DCR, put its credentials in the repository-root `.env` file and
+start the `dcr` Compose profile:
 
 ```text
 DCR_GRAPH_ID=...
 DCR_USERNAME=...
 DCR_PASSWORD=...
+```
+
+```powershell
+docker compose --profile dcr up --build -d
+```
+
 ### DCR
 
 DCR is event-driven. Starting a case creates a simulation and executes nothing.
@@ -231,8 +282,7 @@ docker compose logs -f communication siddhi event_logs_service
 
 The Siddhi ports are HTTP event inputs, not browser pages. In particular,
 `http://localhost:7071/` sends a `GET` to a `POST`-only input and returns
-`Request type is not a type of POST`; use the adapter's `POST /events` endpoint
-instead.
+`Request type is not a type of POST`; Siddhi inputs must be called with `POST`.
 
 Stop the stack with:
 

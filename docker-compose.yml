@@ -7,8 +7,9 @@ services:
     environment:
       SIDDHI_URL: http://siddhi:7071/customer
       SIDDHI_DCR_URL: http://siddhi:7074/customer
-      EVENT_SINK_URL: http://siddhi:7076/events
-      PREPAREDNESS_WARNING_POLICY_URL: http://communication:5001/forecast_refresh
+      PREPAREDNESS_DECISION_SINK_URL: http://siddhi:7077/forecast-refreshes
+      WATER_LEVEL_OBSERVATION_SINK_URL: "${WATER_LEVEL_OBSERVATION_SINK_URL:-http://siddhi:7076/water-level-observations}"
+      PREPAREDNESS_WARNING_POLICY_JSON:
     depends_on:
       communication:
         condition: service_healthy
@@ -32,14 +33,11 @@ services:
       DCR_SIDDHI_CALLBACK_URL: http://siddhi:7075/middleman
       DCR_SERVICE_URL: http://microservice:5001
       DCR_GRAPH_TITLE: "${DCR_GRAPH_TITLE:-}"
-      PREPAREDNESS_WARNING_POLICY_JSON: "${PREPAREDNESS_WARNING_POLICY_JSON:-}"
       PREPAREDNESS_WARNING_STATE_FILE: /data/preparedness_warning_episodes.json
     depends_on:
       zeebe:
         condition: service_healthy
       siddhi:
-        condition: service_healthy
-      microservice:
         condition: service_healthy
     restart: on-failure
     healthcheck:
@@ -59,6 +57,7 @@ services:
       - "7074:7074"
       - "7075:7075"
       - "7076:7076"
+      - "7077:7077"
       - "9390:9390"
     healthcheck:
       test:
@@ -80,6 +79,8 @@ services:
       - event_logs_service
 
   microservice:
+    profiles:
+      - dcr
     build:
       context: ./pais/dcr/microservice
       additional_contexts:
@@ -88,8 +89,9 @@ services:
     container_name: microservice
     ports:
       - "5002:5001"
-    env_file:
-      - ./pais/dcr/microservice/.env
+    environment:
+      DCR_USERNAME: "${DCR_USERNAME:-}"
+      DCR_PASSWORD: "${DCR_PASSWORD:-}"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=3)"]
       interval: 10s

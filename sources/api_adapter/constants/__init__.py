@@ -1,6 +1,9 @@
 """Fixed values used across the adapter. DMI is a public API so nothing here
 depends on the machine it runs on."""
 
+import json
+import os
+
 DMI_BASE_URL = "https://opendataapi.dmi.dk"
 DMI_OBSERVATIONS_PATH = "/v2/oceanObs/collections/observation/items"
 DMI_FORECAST_PATH = "/v1/forecastedr/collections/{collection}/position"
@@ -19,14 +22,45 @@ FORECAST_LOCATION_ID = "copenhagen"
 FORECAST_LON = 12.70
 FORECAST_LAT = 55.70
 
-# Where events go; override this for local or non-default Docker setups.
-import os  # noqa: E402
-
-EVENT_SINK_URL = os.getenv("EVENT_SINK_URL", "http://siddhi:7076/events")
-PREPAREDNESS_WARNING_POLICY_URL = os.getenv(
-    "PREPAREDNESS_WARNING_POLICY_URL",
-    "http://communication:5001/forecast_refresh",
+PREPAREDNESS_DECISION_SINK_URL = os.getenv(
+    "PREPAREDNESS_DECISION_SINK_URL",
+    "http://siddhi:7077/forecast-refreshes",
 )
-EVENT_SINK_TIMEOUT_SECONDS = 10
+WATER_LEVEL_OBSERVATION_SINK_URL = os.getenv(
+    "WATER_LEVEL_OBSERVATION_SINK_URL",
+    "http://siddhi:7076/water-level-observations",
+)
+DEFAULT_PREPAREDNESS_WARNING_POLICY = {
+    "forecast_horizon_hours": 36,
+    "information_lead_hours": 6,
+    "state_lead_hours": 4,
+    "operational_lead_hours": 2,
+    "regions": {
+        "inner_danish_waters": {
+            "category_1_min_cm": 125,
+            "category_2_min_cm": 140,
+            "category_3_above_cm": 160,
+        },
+        "west_coast_jutland": {
+            "category_1_min_cm": 190,
+            "category_2_min_cm": 250,
+            "category_3_above_cm": 300,
+        },
+        "wadden_sea": {
+            "category_1_min_cm": 240,
+            "category_2_min_cm": 300,
+            "category_3_above_cm": 400,
+        },
+    },
+    "locations": {
+        FORECAST_LOCATION_ID: {"region": "inner_danish_waters"},
+    },
+}
+PREPAREDNESS_WARNING_POLICY_JSON = os.getenv(
+    "PREPAREDNESS_WARNING_POLICY_JSON",
+    json.dumps(DEFAULT_PREPAREDNESS_WARNING_POLICY),
+)
+PREPAREDNESS_DECISION_TIMEOUT_SECONDS = 10
+OBSERVATION_SINK_TIMEOUT_SECONDS = 10
 
-POLL_INTERVAL_SECONDS = 600  # DMI updates obs every 10 min
+POLL_INTERVAL_SECONDS = 600  # DMI updates observations every 10 minutes

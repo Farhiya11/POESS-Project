@@ -1,4 +1,16 @@
-from .forwarder import EventForwarder, ForwardError
+from .forwarder import (
+    DecisionSinkError,
+    ObservationSinkError,
+    PreparednessDecisionForwarder,
+    WaterLevelObservationForwarder,
+)
 from .ingestion import IngestionResult, IngestionService
 
-__all__ = ["EventForwarder", "ForwardError", "IngestionResult", "IngestionService"]
+__all__ = [
+    "DecisionSinkError",
+    "IngestionResult",
+    "IngestionService",
+    "ObservationSinkError",
+    "PreparednessDecisionForwarder",
+    "WaterLevelObservationForwarder",
+]
