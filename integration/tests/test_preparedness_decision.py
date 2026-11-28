@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from integration.preparedness_state import PreparednessEpisodeStore
+from integration.preparedness_episode_store import PreparednessEpisodeStore
 
 INTEGRATION_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(INTEGRATION_DIR))
@@ -28,10 +28,12 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     return communication_app.app.test_client()
 
 
-def send_decision(client, payload: dict):
+def send_decision(client, payload: dict, *, event_wrapper: bool = False):
+    event = {"decision_json": json.dumps(payload)}
+    body = {"event": event} if event_wrapper else event
     return client.post(
         "/preparedness_decision",
-        json={"decision_json": json.dumps(payload)},
+        json=body,
     )
 
 
@@ -43,6 +45,7 @@ def test_siddhi_disabled_policy_does_not_change_episode_state(client) -> None:
             "refresh_id": "refresh-1",
             "location_id": "copenhagen",
         },
+        event_wrapper=True,
     )
 
     assert response.status_code == 200

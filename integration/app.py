@@ -12,11 +12,11 @@ from flask import Flask, jsonify, request
 from pyzeebe import Job, ZeebeClient, ZeebeWorker
 
 from dcr_integration import dcr_bp
+from preparedness_episode_store import PreparednessEpisodeStore
 from preparedness_state import (
     DMI_WARNING_CATEGORIES,
     PREPAREDNESS_LEVEL_RANK,
     AlertLevel,
-    PreparednessEpisodeStore,
     PreparednessWarningDecision,
 )
 
@@ -310,7 +310,11 @@ def preparedness_decision():
     if not isinstance(data, dict):
         return jsonify({"error": "JSON data is required"}), 400
 
-    decision_json = data.get("decision_json")
+    event = data.get("event", data)
+    if not isinstance(event, dict):
+        return jsonify({"error": "event must be a JSON object"}), 400
+
+    decision_json = event.get("decision_json")
     if not isinstance(decision_json, str):
         return jsonify({"error": "decision_json is required"}), 400
     try:
