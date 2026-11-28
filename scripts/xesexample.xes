@@ -1,0 +1,198 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="2.0" xes.features="nested-attributes" openxes.version="1.0RC7">
+  <extension name="concept" prefix="concept" uri="http://www.xes-standard.org/concept.xesext" />
+  <extension name="time" prefix="time" uri="http://www.xes-standard.org/time.xesext" />
+  <extension name="org" prefix="org" uri="http://www.xes-standard.org/org.xesext" />
+  <global scope="trace">
+    <string key="concept:name" value="name" />
+  </global>
+  <global scope="event">
+    <string key="concept:name" value="name" />
+    <date key="time:timestamp" value="2024-01-01T00:00:00.000+00:00" />
+    <string key="org:resource" value="resource" />
+  </global>
+  <classifier name="Event Name" keys="concept:name" />
+  <trace>
+    <string key="concept:name" value="DMI-water-level-monitoring" />
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T11:10:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T11:10:00+00:00" />
+      <string key="payload:sea_level_cm" value="-7.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T11:15:36.037208+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T11:20:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T11:20:00+00:00" />
+      <string key="payload:sea_level_cm" value="-8.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T11:25:36.594564+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T11:30:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T11:30:00+00:00" />
+      <string key="payload:sea_level_cm" value="-8.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T11:35:37.106187+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T11:40:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T11:40:00+00:00" />
+      <string key="payload:sea_level_cm" value="-9.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T11:45:37.600440+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T11:50:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T11:50:00+00:00" />
+      <string key="payload:sea_level_cm" value="-10.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T11:55:38.129886+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:00:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:00:00+00:00" />
+      <string key="payload:sea_level_cm" value="-11.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:05:38.218243+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:10:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:10:00+00:00" />
+      <string key="payload:sea_level_cm" value="-11.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:15:38.337987+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:20:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:20:00+00:00" />
+      <string key="payload:sea_level_cm" value="-11.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:25:38.473743+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:30:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:30:00+00:00" />
+      <string key="payload:sea_level_cm" value="-14.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:35:39.032204+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:40:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:40:00+00:00" />
+      <string key="payload:sea_level_cm" value="-15.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:47:21.869378+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T12:50:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T12:50:00+00:00" />
+      <string key="payload:sea_level_cm" value="-14.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T12:57:22.095197+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T13:00:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T13:00:00+00:00" />
+      <string key="payload:sea_level_cm" value="-14.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T13:07:22.633764+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T13:10:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T13:10:00+00:00" />
+      <string key="payload:sea_level_cm" value="-17.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T13:17:26.798613+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T13:30:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T13:30:00+00:00" />
+      <string key="payload:sea_level_cm" value="-18.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T13:37:27.733194+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="WaterLevelObserved" />
+      <date key="time:timestamp" value="2026-11-28T13:40:00+00:00" />
+      <string key="org:resource" value="DMI" />
+      <string key="case_id" value="DMI-water-level-monitoring" />
+      <string key="payload:station_id" value="30336" />
+      <string key="payload:observed_at" value="2026-11-28T13:40:00+00:00" />
+      <string key="payload:sea_level_cm" value="-18.0" />
+      <string key="payload:parameter_id" value="sealev_dvr" />
+      <string key="payload:source_system" value="dmi.oceanObs" />
+      <string key="payload:ingested_at" value="2026-11-28T13:47:28.221194+00:00" />
+    </event>
+  </trace>
+</log>

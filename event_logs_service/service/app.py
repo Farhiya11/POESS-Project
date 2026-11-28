@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import os
 import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
-LOG_DIR = Path("/logs")
-XES_DIR = Path("/XES")
+LOG_DIR = Path(os.getenv("EVENT_LOG_DIR", "/logs"))
+XES_DIR = Path(os.getenv("EVENT_XES_DIR", "/XES"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 XES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -78,6 +79,14 @@ def normalize_event_payload(data):
 def write_json_store(events):
     with open(EVENT_STORE, "w", encoding="utf-8") as f:
         json.dump(events, f, indent=2)
+
+
+def xes_attribute_value(value):
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
 
 
 def build_xes(events):
@@ -161,7 +170,14 @@ def build_xes(events):
                 for key, value in payload.items():
                     if value is None:
                         continue
-                    ET.SubElement(event_el, "string", {"key": f"payload:{key}", "value": str(value)})
+                    ET.SubElement(
+                        event_el,
+                        "string",
+                        {
+                            "key": f"payload:{key}",
+                            "value": xes_attribute_value(value),
+                        },
+                    )
             elif payload is not None:
                 ET.SubElement(event_el, "string", {"key": "payload:raw", "value": str(payload)})
 

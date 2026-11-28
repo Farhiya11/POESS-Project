@@ -102,7 +102,7 @@ services:
 
   event_logs_service:
     build: ./event_logs_service/service
-    container_name: event_logs_service-service
+    container_name: event-logs-service
     ports:
       - "5010:5010"
     volumes:

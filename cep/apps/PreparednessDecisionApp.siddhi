@@ -19,7 +19,9 @@ define function evaluatePreparednessRefresh[javascript] return string {
             dmi_warning_category: warningCategory || "NONE",
             category_time_to_critical_hours: categoryLeadTime,
             category_forecast_value_cm: categoryForecastValue,
-            reason: reason
+            reason: reason,
+            forecasts_json: forecastsJson,
+            policy_json: policyJson
         });
     }
 
@@ -291,6 +293,37 @@ define stream PreparednessDecisionOutput(
 
 @source(
     type='http',
+    receiver.url="http://0.0.0.0:7072/middleman",
+    @map(type='json')
+)
+define stream CommunicationEventInput(
+    order_id string,
+    case_id string,
+    event string,
+    timestamp string,
+    role string,
+    payload string,
+    error string
+);
+
+@sink(
+    type='http',
+    publisher.url='http://event_logs_service:5010/log',
+    method='POST',
+    @map(type='json')
+)
+define stream CommunicationEventLog(
+    event string,
+    case_id string,
+    order_id string,
+    timestamp string,
+    role string,
+    payload string,
+    error string
+);
+
+@source(
+    type='http',
     receiver.url="http://0.0.0.0:7073/health",
     @map(type='json')
 )
@@ -317,3 +350,13 @@ select "WaterLevelObserved" as event,
        source_system,
        ingested_at
 insert into WaterLevelObservationLog;
+
+from CommunicationEventInput
+select event,
+       case_id,
+       order_id,
+       timestamp,
+       role,
+       payload,
+       ifThenElse(error is null, "", error) as error
+insert into CommunicationEventLog;

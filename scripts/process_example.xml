@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<dcr:definitions xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:dcr="http://tk/schema/dcr" xmlns:dcrDi="http://tk/schema/dcrDi">
+  <dcr:dcrGraph id="dcrGraph">
+    <dcr:event id="Event_0001" description="WaterLevelObserved" included="true" executed="false" pending="false" enabled="true" role="DMI">
+      <dcr:eventData name="case_id" type="String" default="DMI-water-level-monitoring" />
+      <dcr:eventData name="ingested_at" type="String" default="2026-11-28T14:02:37.840751+00:00" />
+      <dcr:eventData name="observed_at" type="String" default="2026-11-28T12:30:00+00:00" />
+      <dcr:eventData name="parameter_id" type="String" default="sealev_dvr" />
+      <dcr:eventData name="sea_level_cm" type="String" default="-14.0" />
+      <dcr:eventData name="source_system" type="String" default="dmi.oceanObs" />
+      <dcr:eventData name="station_id" type="String" default="30336" />
+    </dcr:event>
+  </dcr:dcrGraph>
+  <dcrDi:dcrRootBoard id="RootBoard">
+    <dcrDi:dcrPlane id="Plane" boardElement="dcrGraph">
+      <dcrDi:dcrShape id="Event_0001_di" boardElement="Event_0001">
+        <dc:Bounds x="0" y="0" width="180" height="100" />
+      </dcrDi:dcrShape>
+    </dcrDi:dcrPlane>
+  </dcrDi:dcrRootBoard>
+</dcr:definitions>

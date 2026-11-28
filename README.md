@@ -50,11 +50,16 @@ each new observation to Siddhi at
 `POST http://siddhi:7076/water-level-observations`. Siddhi logs these readings
 to the event-log service for monitoring; they do not affect preparedness
 decisions. Forecasts are submitted separately as complete refreshes to
-`POST http://siddhi:7077/forecast-refreshes`. Siddhi evaluates each full
-refresh and sends one decision to
-`POST http://communication:5001/preparedness_decision`.
+`POST http://siddhi:7077/forecast-refreshes`. Siddhi evaluates each refresh,
+including the full forecast and policy snapshots in its result, and sends the
+decision to `POST http://communication:5001/preparedness_decision`.
 The integration service does not evaluate forecast thresholds; it manages
-preparedness episodes and starts or updates the Camunda process.
+preparedness episodes and starts or updates the Camunda process. Refresh
+outcomes, episode transitions, and Camunda preparedness task outcomes are sent
+back to Siddhi at `POST http://siddhi:7072/middleman`, then forwarded to the
+event-log service. Logging is fail-open: callback failures are reported in the
+communication or Siddhi service logs and do not fail alert handling or a
+Camunda task.
 The Siddhi container installs the `siddhi-script-js` extension to run the
 refresh evaluator in the Siddhi application.
 `PREPAREDNESS_DECISION_SINK_URL` can override the adapter's default Siddhi
@@ -200,9 +205,9 @@ You then choose which enabled event to run next.
 The state request is read-only and goes directly to the DCR microservice. Starting
 a case and executing events always go through the adapter, Siddhi and the
 integration service. After each start or event execution, the integration service
-returns the current DCR status (`running` or `finished`) to Siddhi with the
-callback. Siddhi logs each callback and emits a separate `DCR Case Finished`
-event when the DCR simulation has no remaining pending events.
+returns the current DCR status (`running` or `finished`) to Siddhi on
+`7075/middleman`. Siddhi logs each callback and emits a separate `DCR Case
+Finished` event when the DCR simulation has no remaining pending events.
 
 ## Reading the logs
 
@@ -210,8 +215,22 @@ There are two places to look.
 
 ### Event log (what happened in each case)
 
-Every executed step is sent to the event log service, which stores it as JSON and
-XES. Follow it live with:
+The event-log service stores received events as JSON and XES. Preparedness
+refresh and episode events include decision evidence and input snapshots.
+Camunda task events use the corresponding BPMN task names, with the case ID,
+timestamp, role, and task outcome recorded as event data. Active warning events
+share the alert episode case ID; refreshes without an active warning use their
+refresh ID. DCR callbacks continue to use the DCR simulation case ID.
+
+The XES logs can be imported into ProcessDoctor for conformance checking once a
+matching DCR compliance model has been selected. This repository does not yet
+document a compliance model for each implemented process or automate the
+ProcessDoctor check. The broader course deliverables (six distinct process
+models, student ownership, and identification of a knowledge-intensive
+process) must be documented separately; event logging alone does not establish
+them. The observation and forecast feeds currently both come from DMI, so
+confirm whether the course counts these as two event sources or expects two
+distinct source systems. Follow the event logger live with:
 
 ```powershell
 docker compose logs -f event_logs_service

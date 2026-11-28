@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dcr:definitions xmlns:dcr="http://tk/schema/dcr" xmlns:dcrDi="http://tk/schema/dcrDi" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
+  <dcr:dcrGraph id="dcrGraph">
+    <dcr:event id="Event_1g5a7vl" role="asdasd" description="amount" included="true" executed="false" pending="true" enabled="false">
+      <dcr:eventData name="amount" type="Int" default="0" />
+    </dcr:event>
+    <dcr:event id="Event_1szolz9" description="" included="false" executed="false" pending="false" enabled="false">
+      <dcr:eventData name="isFine" type="Bool" default="true" />
+    </dcr:event>
+    <dcr:relation id="Relation_1f2rbav" type="include" sourceRef="Event_1g5a7vl" targetRef="Event_1szolz9" />
+    <dcr:event id="Event_04n16kl" description="" included="true" executed="false" pending="false" enabled="false" />
+    <dcr:event id="Event_189laky" description="" included="true" executed="false" pending="false" enabled="false">
+      <dcr:eventData name="name" type="String" default="dra" />
+    </dcr:event>
+    <dcr:event id="Event_1q0q2kl" description="" included="true" executed="false" pending="false" enabled="false" />
+    <dcr:event id="Event_0zgo87u" description="" included="true" executed="false" pending="false" enabled="false" />
+    <dcr:relation id="Relation_1hkzybk" type="response" sourceRef="Event_1g5a7vl" targetRef="Event_189laky" guard="amount &#62; 0" time="P3D" />
+    <dcr:relation id="Relation_08z73yf" type="response" sourceRef="Event_1g5a7vl" targetRef="Event_04n16kl" guard="amount &#62; 0" time="PT30M" />
+    <dcr:relation id="Relation_0py3i47" type="exclude" sourceRef="Event_1g5a7vl" targetRef="Event_0zgo87u" />
+    <dcr:relation id="Relation_19pntf4" type="milestone" sourceRef="Event_1g5a7vl" targetRef="Event_1q0q2kl" guard="amount &#62;0" />
+    <dcr:event id="Event_1jzvqp3" description="" included="true" executed="true" pending="false" enabled="false" />
+    <dcr:relation id="Relation_0ikfken" type="milestone" sourceRef="Event_1g5a7vl" targetRef="Event_1jzvqp3" />
+    <dcr:subProcess id="SubProcess_13ww9jo" included="true" executed="false" pending="false" enabled="false">
+      <dcr:event id="Event_0sux26y" description="" included="true" executed="false" pending="false" enabled="false" />
+      <dcr:event id="Event_1eejf8u" description="" included="true" executed="false" pending="false" enabled="false" />
+      <dcr:relation id="Relation_0dqpzm7" type="condition" sourceRef="Event_0sux26y" targetRef="Event_1eejf8u" guard="amount &#62; 0" time="PT2H" />
+    </dcr:subProcess>
+    <dcr:relation id="Relation_1talwye" type="response" sourceRef="Event_04n16kl" targetRef="SubProcess_13ww9jo" guard="amount &#62; 0" time="PT2H30M" />
+    <dcr:nesting id="Nesting_0osue1i">
+      <dcr:event id="Event_0b0asxv" description="" included="true" executed="false" pending="false" enabled="false" />
+      <dcr:event id="Event_1fqjjgh" description="" included="true" executed="false" pending="false" enabled="false" />
+      <dcr:relation id="Relation_0qs6g31" type="condition" sourceRef="Event_1fqjjgh" targetRef="Event_0b0asxv" />
+    </dcr:nesting>
+    <dcr:relation id="Relation_0e25lz2" type="condition" sourceRef="Event_189laky" targetRef="Nesting_0osue1i" time="PT30M" />
+    <dcr:relation id="Relation_0jxqtbf" type="exclude" sourceRef="Event_189laky" targetRef="Event_189laky" />
+    <dcr:relation id="Relation_118lyqs" type="milestone" sourceRef="Event_1szolz9" targetRef="Event_1jzvqp3" guard="isFine = true" />
+    <dcr:relation id="Relation_1nkqcvb" type="include" sourceRef="Event_189laky" targetRef="Event_1q0q2kl" guard="name = &#34;dra&#34;" />
+  </dcr:dcrGraph>
+  <dcrDi:dcrRootBoard id="RootBoard">
+    <dcrDi:dcrPlane id="Plane" boardElement="dcrGraph">
+      <dcrDi:relation id="Relation_0jxqtbf_di" boardElement="Relation_0jxqtbf">
+        <dcrDi:waypoint x="-35" y="-50" />
+        <dcrDi:waypoint x="-35" y="-10" />
+        <dcrDi:waypoint x="-80" y="-10" />
+        <dcrDi:waypoint x="-80" y="-50" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_0e25lz2_di" boardElement="Relation_0e25lz2">
+        <dcrDi:waypoint x="-100" y="-125" />
+        <dcrDi:waypoint x="-165" y="-125" />
+        <dcrDi:waypoint x="-165" y="30" />
+        <dcrDi:waypoint x="-230" y="30" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_1talwye_di" boardElement="Relation_1talwye">
+        <dcrDi:waypoint x="320" y="-415" />
+        <dcrDi:waypoint x="235" y="-415" />
+        <dcrDi:waypoint x="235" y="-470" />
+        <dcrDi:waypoint x="150" y="-470" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_0ikfken_di" boardElement="Relation_0ikfken">
+        <dcrDi:waypoint x="450" y="-125" />
+        <dcrDi:waypoint x="590" y="-125" />
+        <dcrDi:waypoint x="590" y="195" />
+        <dcrDi:waypoint x="730" y="195" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_19pntf4_di" boardElement="Relation_19pntf4">
+        <dcrDi:waypoint x="320" y="-125" />
+        <dcrDi:waypoint x="175" y="-125" />
+        <dcrDi:waypoint x="175" y="225" />
+        <dcrDi:waypoint x="30" y="225" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_0py3i47_di" boardElement="Relation_0py3i47">
+        <dcrDi:waypoint x="385" y="-50" />
+        <dcrDi:waypoint x="385" y="180" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_08z73yf_di" boardElement="Relation_08z73yf">
+        <dcrDi:waypoint x="385" y="-200" />
+        <dcrDi:waypoint x="385" y="-340" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_1hkzybk_di" boardElement="Relation_1hkzybk">
+        <dcrDi:waypoint x="320" y="-125" />
+        <dcrDi:waypoint x="30" y="-125" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_1f2rbav_di" boardElement="Relation_1f2rbav">
+        <dcrDi:waypoint x="450" y="-125" />
+        <dcrDi:waypoint x="780" y="-125" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_118lyqs_di" boardElement="Relation_118lyqs">
+        <dcrDi:waypoint x="845" y="-40" />
+        <dcrDi:waypoint x="845" y="40" />
+        <dcrDi:waypoint x="795" y="40" />
+        <dcrDi:waypoint x="795" y="120" />
+      </dcrDi:relation>
+      <dcrDi:relation id="Relation_1nkqcvb_di" boardElement="Relation_1nkqcvb">
+        <dcrDi:waypoint x="-35" y="-50" />
+        <dcrDi:waypoint x="-35" y="50" />
+        <dcrDi:waypoint x="20" y="50" />
+        <dcrDi:waypoint x="20" y="150" />
+      </dcrDi:relation>
+      <dcrDi:dcrShape id="Event_1g5a7vl_di" boardElement="Event_1g5a7vl">
+        <dc:Bounds x="320" y="-200" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_1szolz9_di" boardElement="Event_1szolz9">
+        <dc:Bounds x="780" y="-190" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_04n16kl_di" boardElement="Event_04n16kl">
+        <dc:Bounds x="320" y="-490" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_189laky_di" boardElement="Event_189laky">
+        <dc:Bounds x="-100" y="-200" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_1q0q2kl_di" boardElement="Event_1q0q2kl">
+        <dc:Bounds x="-100" y="150" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_0zgo87u_di" boardElement="Event_0zgo87u">
+        <dc:Bounds x="320" y="180" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_1jzvqp3_di" boardElement="Event_1jzvqp3">
+        <dc:Bounds x="730" y="120" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="SubProcess_13ww9jo_di" boardElement="SubProcess_13ww9jo">
+        <dc:Bounds x="-430" y="-605" width="580" height="360" />
+      </dcrDi:dcrShape>
+      <dcrDi:relation id="Relation_0dqpzm7_di" boardElement="Relation_0dqpzm7">
+        <dcrDi:waypoint x="-260" y="-515" />
+        <dcrDi:waypoint x="-150" y="-515" />
+        <dcrDi:waypoint x="-150" y="-375" />
+        <dcrDi:waypoint x="-40" y="-375" />
+      </dcrDi:relation>
+      <dcrDi:dcrShape id="Event_0sux26y_di" boardElement="Event_0sux26y">
+        <dc:Bounds x="-390" y="-590" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_1eejf8u_di" boardElement="Event_1eejf8u">
+        <dc:Bounds x="-40" y="-450" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Nesting_0osue1i_di" boardElement="Nesting_0osue1i">
+        <dc:Bounds x="-630" y="-130" width="400" height="280" />
+      </dcrDi:dcrShape>
+      <dcrDi:relation id="Relation_0qs6g31_di" boardElement="Relation_0qs6g31">
+        <dcrDi:waypoint x="-410" y="25" />
+        <dcrDi:waypoint x="-440" y="25" />
+        <dcrDi:waypoint x="-440" y="5" />
+        <dcrDi:waypoint x="-470" y="5" />
+      </dcrDi:relation>
+      <dcrDi:dcrShape id="Event_0b0asxv_di" boardElement="Event_0b0asxv">
+        <dc:Bounds x="-600" y="-70" width="130" height="150" />
+      </dcrDi:dcrShape>
+      <dcrDi:dcrShape id="Event_1fqjjgh_di" boardElement="Event_1fqjjgh">
+        <dc:Bounds x="-410" y="-50" width="130" height="150" />
+      </dcrDi:dcrShape>
+    </dcrDi:dcrPlane>
+  </dcrDi:dcrRootBoard>
+</dcr:definitions>
