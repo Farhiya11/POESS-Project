@@ -30,6 +30,138 @@ function Get-CommunicationLogs {
     return $output
 }
 
+function Get-CommunicationSnapshot {
+    $lines = @((Get-CommunicationLogs) -split "`r?`n")
+    $decisionLines = @(
+        $lines | Where-Object {
+            $_ -match 'POST /preparedness_decision HTTP/1\.1" \d{3}'
+        }
+    )
+    $taskLines = @(
+        $lines | Where-Object { $_.Contains("[Camunda] Simulating") }
+    )
+
+    return @{
+        Lines = $lines
+        DecisionCount = $decisionLines.Count
+        TaskCount = $taskLines.Count
+    }
+}
+
+function Send-TestRefresh(
+    [string]$locationId,
+    [string]$refreshId,
+    [double]$seaLevelCm,
+    [double]$leadTimeHours
+) {
+    $policy = @{
+        forecast_horizon_hours = 36
+        information_lead_hours = 6
+        state_lead_hours = 4
+        operational_lead_hours = 2
+        regions = @{
+            "test-region" = @{
+                category_1_min_cm = 100
+                category_2_min_cm = 150
+                category_3_above_cm = 200
+            }
+        }
+        locations = @{
+            $locationId = @{ region = "test-region" }
+        }
+    }
+    $forecasts = @(
+        @{
+            location_id = $locationId
+            sea_level_cm = $seaLevelCm
+            lead_time_hours = $leadTimeHours
+        }
+    )
+    $requestBody = @{
+        refresh_id = $refreshId
+        location_id = $locationId
+        forecasts_json = ConvertTo-Json -InputObject $forecasts -Compress -Depth 10
+        policy_json = ConvertTo-Json -InputObject $policy -Compress -Depth 10
+    }
+    $body = ConvertTo-Json -InputObject $requestBody -Compress -Depth 10
+
+    Invoke-RestMethod `
+        -Uri "http://localhost:7077/forecast-refreshes" `
+        -Method Post `
+        -ContentType "application/json" `
+        -Body $body `
+        -TimeoutSec 15 `
+        -ErrorAction Stop | Out-Null
+}
+
+function Wait-ForDecision(
+    [int]$baselineCount,
+    [string]$stageName,
+    [System.Windows.Forms.TextBox]$outputBox
+) {
+    for ($attempt = 0; $attempt -lt 15; $attempt++) {
+        Start-Sleep -Seconds 2
+        $snapshot = Get-CommunicationSnapshot
+        if ($snapshot.DecisionCount -gt $baselineCount) {
+            $line = $snapshot.Lines |
+                Where-Object {
+                    $_ -match 'POST /preparedness_decision HTTP/1\.1" \d{3}'
+                } |
+                Select-Object -Last 1
+            if ($line -match 'HTTP/1\.1" (\d{3})') {
+                if ($Matches[1] -ne "200") {
+                    throw "$stageName decision was rejected: $line"
+                }
+                $outputBox.AppendText("$stageName decision accepted: $line`r`n")
+                $outputBox.Refresh()
+                return
+            }
+        }
+    }
+
+    throw "Timed out waiting for communication to receive the $stageName decision."
+}
+
+function Wait-ForCamundaTasks(
+    [string[]]$taskNames,
+    [int]$baselineTaskCount,
+    [string]$stageName,
+    [System.Windows.Forms.TextBox]$outputBox
+) {
+    for ($attempt = 0; $attempt -lt 15; $attempt++) {
+        $snapshot = Get-CommunicationSnapshot
+        $newTaskLines = @(
+            $snapshot.Lines |
+                Where-Object { $_.Contains("[Camunda] Simulating") } |
+                Select-Object -Skip $baselineTaskCount
+        )
+        $matchedLines = @()
+        foreach ($taskName in $taskNames) {
+            $taskLine = $newTaskLines |
+                Where-Object { $_.Contains("Simulating $taskName for case") } |
+                Select-Object -First 1
+            if (-not $taskLine) {
+                $matchedLines = @()
+                break
+            }
+            $matchedLines += $taskLine
+        }
+
+        if ($matchedLines.Count -eq $taskNames.Count) {
+            foreach ($line in $matchedLines) {
+                $outputBox.AppendText("$line`r`n")
+            }
+            $outputBox.Refresh()
+            Start-Sleep -Seconds 1
+            return
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    throw "Timed out waiting for Camunda to run $stageName."
+}
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Preparedness Flow Test"
 $form.StartPosition = "CenterScreen"
@@ -39,18 +171,18 @@ $form.MinimumSize = New-Object System.Drawing.Size(650, 400)
 $intro = New-Object System.Windows.Forms.Label
 $intro.Location = New-Object System.Drawing.Point(16, 16)
 $intro.Size = New-Object System.Drawing.Size(720, 42)
-$intro.Text = "Sends a randomized, in-range forecast to Siddhi and checks whether communication started the BPMN preparedness flow."
+$intro.Text = "Runs randomized forecasts through INFORMATION, STATE, OPERATIONAL, then automatically clears the alert."
 $form.Controls.Add($intro)
 
 $runButton = New-Object System.Windows.Forms.Button
 $runButton.Location = New-Object System.Drawing.Point(16, 68)
-$runButton.Size = New-Object System.Drawing.Size(170, 34)
-$runButton.Text = "Run preparedness test"
+$runButton.Size = New-Object System.Drawing.Size(190, 34)
+$runButton.Text = "Run full preparedness flow"
 $form.Controls.Add($runButton)
 
 $operateButton = New-Object System.Windows.Forms.Button
-$operateButton.Location = New-Object System.Drawing.Point(198, 68)
-$operateButton.Size = New-Object System.Drawing.Size(145, 34)
+$operateButton.Location = New-Object System.Drawing.Point(218, 68)
+$operateButton.Size = New-Object System.Drawing.Size(165, 34)
 $operateButton.Text = "Open Camunda Operate"
 $form.Controls.Add($operateButton)
 
@@ -76,7 +208,6 @@ $runButton.Add_Click({
     try {
         $stamp = Get-Date -Format "yyyyMMddHHmmssfff"
         $locationId = "e2e-test-$stamp"
-        $refreshId = "e2e-$stamp"
 
         $health = Invoke-RestMethod `
             -Uri "http://localhost:5001/health" `
@@ -86,153 +217,67 @@ $runButton.Add_Click({
             throw "Communication is not ready (health status: $($health.status))."
         }
 
-        $baselineLogs = Get-CommunicationLogs
-        $baselineDecisionCount = @(
-            ($baselineLogs -split "`r?`n") |
-                Where-Object { $_ -match 'POST /preparedness_decision HTTP/1\.1" \d{3}' }
-        ).Count
+        $seaLevelCm = Get-Random -Minimum 150 -Maximum 201
+        $informationLeadHours = Get-Random -Minimum 5 -Maximum 7
+        $stateLeadHours = Get-Random -Minimum 3 -Maximum 5
+        $operationalLeadHours = Get-Random -Minimum 0 -Maximum 3
 
-        $category1MinCm = 100
-        $category2MinCm = 150
-        $category3AboveCm = 200
-        $forecastHorizonHours = 36
-        $informationLeadHours = 6
-        $stateLeadHours = 4
-        $operationalLeadHours = 2
-        $maximumSeaLevelCm = 250
-        $seaLevelCm = Get-Random -Minimum $category1MinCm -Maximum ($maximumSeaLevelCm + 1)
-        $leadTimeHours = Get-Random -Minimum 0 -Maximum ($forecastHorizonHours + 1)
+        $outputBox.AppendText("Location: $locationId`r`n")
+        $outputBox.AppendText("Randomized sea level: $seaLevelCm cm (CATEGORY_2)`r`n")
+        $outputBox.AppendText("Running staged alert decisions and automatic clear...`r`n`r`n")
+        $outputBox.Refresh()
 
-        if ($seaLevelCm -gt $category3AboveCm) {
-            $warningCategory = "CATEGORY_3"
-        } elseif ($seaLevelCm -ge $category2MinCm) {
-            $warningCategory = "CATEGORY_2"
-        } else {
-            $warningCategory = "CATEGORY_1"
-        }
-
-        if ($leadTimeHours -le $operationalLeadHours) {
-            $alertLevel = "OPERATIONAL"
-        } elseif ($leadTimeHours -le $stateLeadHours) {
-            $alertLevel = "STATE"
-        } elseif ($leadTimeHours -le $informationLeadHours) {
-            $alertLevel = "INFORMATION"
-        } else {
-            $alertLevel = "INTERNAL"
-        }
-
-        $policy = @{
-            forecast_horizon_hours = $forecastHorizonHours
-            information_lead_hours = $informationLeadHours
-            state_lead_hours = $stateLeadHours
-            operational_lead_hours = $operationalLeadHours
-            regions = @{
-                "test-region" = @{
-                    category_1_min_cm = $category1MinCm
-                    category_2_min_cm = $category2MinCm
-                    category_3_above_cm = $category3AboveCm
-                }
-            }
-            locations = @{}
-        }
-        $policy.locations[$locationId] = @{ region = "test-region" }
-
-        $forecasts = @(
-            @{
-                location_id = $locationId
-                sea_level_cm = $seaLevelCm
-                lead_time_hours = $leadTimeHours
-            }
+        $snapshot = Get-CommunicationSnapshot
+        $refreshId = "e2e-$stamp-information"
+        Send-TestRefresh $locationId $refreshId $seaLevelCm $informationLeadHours
+        $outputBox.AppendText(
+            "Sent INFORMATION forecast: $seaLevelCm cm at $informationLeadHours hours.`r`n"
         )
+        $outputBox.Refresh()
+        Wait-ForDecision $snapshot.DecisionCount "INFORMATION" $outputBox
+        Wait-ForCamundaTasks `
+            @("internalPreparedness", "informationPreparedness") `
+            $snapshot.TaskCount "INFORMATION" $outputBox
 
-        $requestBody = @{
-            refresh_id = $refreshId
-            location_id = $locationId
-            forecasts_json = ConvertTo-Json -InputObject $forecasts -Compress -Depth 10
-            policy_json = ConvertTo-Json -InputObject $policy -Compress -Depth 10
-        }
-        $body = ConvertTo-Json -InputObject $requestBody -Compress -Depth 10
+        $snapshot = Get-CommunicationSnapshot
+        $refreshId = "e2e-$stamp-state"
+        Send-TestRefresh $locationId $refreshId $seaLevelCm $stateLeadHours
+        $outputBox.AppendText(
+            "Sent STATE forecast: $seaLevelCm cm at $stateLeadHours hours.`r`n"
+        )
+        $outputBox.Refresh()
+        Wait-ForDecision $snapshot.DecisionCount "STATE" $outputBox
+        Wait-ForCamundaTasks `
+            @("staffPreparedness") `
+            $snapshot.TaskCount "STATE" $outputBox
 
-        Invoke-RestMethod `
-            -Uri "http://localhost:7077/forecast-refreshes" `
-            -Method Post `
-            -ContentType "application/json" `
-            -Body $body `
-            -TimeoutSec 15 `
-            -ErrorAction Stop | Out-Null
+        $snapshot = Get-CommunicationSnapshot
+        $refreshId = "e2e-$stamp-operational"
+        Send-TestRefresh $locationId $refreshId $seaLevelCm $operationalLeadHours
+        $outputBox.AppendText(
+            "Sent OPERATIONAL forecast: $seaLevelCm cm at $operationalLeadHours hours.`r`n"
+        )
+        $outputBox.Refresh()
+        Wait-ForDecision $snapshot.DecisionCount "OPERATIONAL" $outputBox
+        Wait-ForCamundaTasks `
+            @("operationalPreparedness") `
+            $snapshot.TaskCount "OPERATIONAL" $outputBox
 
-        $outputBox.AppendText("Refresh accepted by Siddhi.`r`n")
-        $outputBox.AppendText("Refresh ID: $refreshId`r`n")
-        $outputBox.AppendText("Location:   $locationId`r`n")
-        $outputBox.AppendText("Forecast:   $seaLevelCm cm at $leadTimeHours hours`r`n")
-        $outputBox.AppendText("Expected:   $alertLevel / $warningCategory`r`n`r`n")
-        $outputBox.AppendText("Checking communication and Camunda logs...`r`n")
+        $snapshot = Get-CommunicationSnapshot
+        $refreshId = "e2e-$stamp-clear"
+        Send-TestRefresh $locationId $refreshId 99 1
+        $outputBox.AppendText("Sent NONE forecast: 99 cm at 1 hour to clear the alert.`r`n")
+        $outputBox.Refresh()
+        Wait-ForDecision $snapshot.DecisionCount "clear/NONE" $outputBox
 
-        try {
-            $logLines = @()
-            $decisionLine = $null
-            $decisionStatus = $null
-            $taskLines = @()
-            for ($attempt = 0; $attempt -lt 8 -and $taskLines.Count -eq 0; $attempt++) {
-                $logs = Get-CommunicationLogs
-                $logLines = @($logs -split "`r?`n")
-                $decisionLine = $null
-                $decisionStatus = $null
-                $decisionIndex = -1
-                $decisionCount = 0
-
-                for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
-                    if ($logLines[$lineIndex] -match 'POST /preparedness_decision HTTP/1\.1" (\d{3})') {
-                        $decisionCount++
-                        if ($decisionCount -gt $baselineDecisionCount) {
-                            $decisionLine = $logLines[$lineIndex]
-                            $decisionStatus = $Matches[1]
-                            $decisionIndex = $lineIndex
-                        }
-                    }
-                }
-
-                if ($decisionStatus -eq "200" -and $decisionIndex -ge 0) {
-                    for ($lineIndex = $decisionIndex + 1; $lineIndex -lt $logLines.Count; $lineIndex++) {
-                        if ($logLines[$lineIndex].Contains("[Camunda] Simulating")) {
-                            $taskLines += $logLines[$lineIndex]
-                        }
-                    }
-                }
-
-                if ($taskLines.Count -eq 0 -and $decisionStatus -notin @("400", "503")) {
-                    Start-Sleep -Seconds 2
-                }
-            }
-
-            if ($decisionStatus -eq "200" -and $taskLines.Count -gt 0) {
-                $outputBox.AppendText("PASS: communication accepted the decision and Camunda ran preparedness tasks.`r`n")
-                $outputBox.AppendText("$decisionLine`r`n")
-                foreach ($line in $taskLines) {
-                    $outputBox.AppendText("$line`r`n")
-                }
-            } else {
-                $outputBox.AppendText("The Siddhi request was accepted, but Camunda execution was not confirmed.`r`n")
-                if ($decisionLine) {
-                    $outputBox.AppendText("$decisionLine`r`n")
-                }
-                $relevantLines = $logLines |
-                    Where-Object {
-                        $_.Contains("/preparedness_decision") -or
-                        $_.Contains("ERROR") -or
-                        $_.Contains("Error")
-                    }
-                foreach ($line in $relevantLines) {
-                    $outputBox.AppendText("$line`r`n")
-                }
-                $outputBox.AppendText("You can inspect the complete recent logs with the Docker Desktop interface.`r`n")
-            }
-        } catch {
-            $outputBox.AppendText("The request succeeded, but communication logs could not be read.`r`n")
-            $outputBox.AppendText("$($_.Exception.Message)`r`n")
-        }
+        $outputBox.AppendText(
+            "`r`nPASS: INFORMATION, STATE, OPERATIONAL, and NONE decisions were accepted; all preparedness tasks ran.`r`n"
+        )
+        $outputBox.AppendText(
+            "The BPMN clear message was published. Open Operate to confirm the instance completed.`r`n"
+        )
     } catch {
-        $outputBox.AppendText("TEST FAILED: $($_.Exception.Message)`r`n")
+        $outputBox.AppendText("FULL FLOW TEST FAILED: $($_.Exception.Message)`r`n")
         $outputBox.AppendText("Check that the Docker Compose services are running and healthy.`r`n")
     } finally {
         $runButton.Enabled = $true
