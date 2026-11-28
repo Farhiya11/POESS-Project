@@ -52,6 +52,7 @@ def test_bpmn_references_resolve_and_alert_clear_terminates_escalation() -> None
         f".//{BPMN_NAMESPACE}endEvent[@id='Event_AlertCleared']"
     )
     assert clear_event is not None
+    assert clear_event.attrib["name"] == "Preparedness episode closed"
     assert len(clear_event.findall(f"{BPMN_NAMESPACE}incoming")) == 3
 
     receive_events = [
