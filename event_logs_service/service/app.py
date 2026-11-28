@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import json
 import os
+from threading import Lock
 import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
@@ -15,6 +16,7 @@ XES_DIR.mkdir(parents=True, exist_ok=True)
 RUN_ID = datetime.now(timezone.utc).strftime("%y%m%d_%H%M%S")
 EVENT_STORE = LOG_DIR / f"{RUN_ID}_events.json"
 XES_FILE = XES_DIR / f"{RUN_ID}_process_log.xes"
+EVENT_STORE_LOCK = Lock()
 
 
 def utc_now_iso() -> str:
@@ -194,18 +196,19 @@ def log_event():
 
     event = normalize_event_payload(data)
 
-    try:
-        if EVENT_STORE.exists():
-            with open(EVENT_STORE, "r", encoding="utf-8") as f:
-                events = json.load(f)
-        else:
+    with EVENT_STORE_LOCK:
+        try:
+            if EVENT_STORE.exists():
+                with open(EVENT_STORE, "r", encoding="utf-8") as f:
+                    events = json.load(f)
+            else:
+                events = []
+        except (json.JSONDecodeError, OSError):
             events = []
-    except (json.JSONDecodeError, OSError):
-        events = []
 
-    events.append(event)
-    write_json_store(events)
-    build_xes(events)
+        events.append(event)
+        write_json_store(events)
+        build_xes(events)
 
     print(f"[XES] Logged event={event['event']} case_id={event['case_id']} ts={event['timestamp']}", flush=True)
     return jsonify({"status": "logged", "xes_file": str(XES_FILE)}), 200

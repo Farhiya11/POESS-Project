@@ -2,6 +2,7 @@ import importlib.util
 import json
 import sys
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -65,3 +66,31 @@ def test_log_endpoint_preserves_preparedness_snapshot_in_json_and_xes(log_client
     decision_attribute = event.find("string[@key='payload:decision']")
     assert decision_attribute is not None
     assert json.loads(decision_attribute.attrib["value"]) == decision
+
+
+def test_concurrent_posts_are_not_lost_from_json_or_xes(log_client):
+    _, service_app = log_client
+
+    def post_event(index: int) -> int:
+        with service_app.app.test_client() as client:
+            response = client.post(
+                "/log",
+                json={
+                    "event": "Internal preparedness",
+                    "case_id": "episode-concurrent",
+                    "timestamp": f"2026-11-28T12:00:{index:02d}+00:00",
+                    "role": "camunda",
+                    "payload": {"sequence": index},
+                },
+            )
+            return response.status_code
+
+    event_count = 32
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        statuses = list(executor.map(post_event, range(event_count)))
+
+    stored = json.loads(service_app.EVENT_STORE.read_text(encoding="utf-8"))
+    root = ET.parse(service_app.XES_FILE).getroot()
+    assert statuses == [200] * event_count
+    assert len(stored) == event_count
+    assert len(root.findall("trace/event")) == event_count
