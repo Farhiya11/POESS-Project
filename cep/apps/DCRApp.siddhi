@@ -1,0 +1,98 @@
+@App:name("DCRApp")
+
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7074/customer",
+    @map(type='json', fail.on.missing.attribute='false')
+)
+define stream CustomerStream(order_id string, action string, event_id string, graph_title string);
+
+@source(
+    type='http',
+    receiver.url="http://0.0.0.0:7075/middleman",
+    @map(type='json')
+)
+define stream MiddlemanStream(
+    order_id string,
+    case_id string,
+    event string,
+    timestamp string,
+    role string,
+    payload string,
+    status string,
+    error string
+);
+
+@sink(
+    type='http',
+    publisher.url='http://communication:5001/start_dcr_case',
+    method='POST',
+    @map(type='json')
+)
+define stream StartDcrCaseOut(order_id string, graph_title string);
+
+@sink(
+    type='http',
+    publisher.url='http://communication:5001/dcr_event',
+    method='POST',
+    @map(type='json')
+)
+define stream DcrEventOut(order_id string, event_id string);
+
+@sink(
+    type='http',
+    publisher.url='http://event_logs_service:5010/log',
+    method='POST',
+    @map(type='json')
+)
+define stream Logging(
+    event string,
+    case_id string,
+    order_id string,
+    timestamp string,
+    role string,
+    payload string,
+    error string
+);
+
+define stream RoutingError(order_id string, error string);
+
+from CustomerStream[order_id is null or action is null]
+select order_id, "order_id and action are required" as error
+insert into RoutingError;
+
+from CustomerStream[action == "StartDcrCase" and not(order_id is null)]
+select order_id, graph_title
+insert into StartDcrCaseOut;
+
+from CustomerStream[action == "ExecuteDcrEvent" and not(order_id is null) and not(event_id is null) and event_id != ""]
+select order_id, event_id
+insert into DcrEventOut;
+
+from CustomerStream[action == "ExecuteDcrEvent" and (event_id is null or event_id == "")]
+select order_id, "event_id is required for ExecuteDcrEvent" as error
+insert into RoutingError;
+
+from CustomerStream[action != "StartDcrCase" and action != "ExecuteDcrEvent"]
+select order_id, "unsupported action" as error
+insert into RoutingError;
+
+from MiddlemanStream
+select event, case_id, order_id, timestamp, role, payload,
+       ifThenElse(error is null, "", error) as error
+insert into Logging;
+
+from MiddlemanStream[status == "finished"]
+select "DCR Case Finished" as event, case_id, order_id, timestamp, role, payload,
+       ifThenElse(error is null, "", error) as error
+insert into Logging;
+
+from RoutingError
+select "Error" as event,
+       "UNKNOWN_CASE" as case_id,
+       order_id,
+       convert(currentTimeMillis(), "string") as timestamp,
+       "siddhi" as role,
+       "" as payload,
+       error
+insert into Logging;

@@ -3,30 +3,47 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import cache
-from typing import Any
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from constants import POLL_INTERVAL_SECONDS
 from dmi import DMIClient, DMIParseError, DMIRequestError
-from service import EventForwarder, ForwardError, IngestionService
+from service import (
+    DecisionSinkError,
+    IngestionService,
+    ObservationSinkError,
+    PreparednessDecisionForwarder,
+    WaterLevelObservationForwarder,
+)
 
 log = logging.getLogger("ingestion_server")
 
 
 @cache
 def ingestion() -> IngestionService:
-    return IngestionService(DMIClient(), EventForwarder())
+    return IngestionService(
+        DMIClient(),
+        PreparednessDecisionForwarder(),
+        WaterLevelObservationForwarder(),
+    )
 
 
 async def poll_forever() -> None:
     while True:
-        for job in (ingestion().ingest_observations, ingestion().ingest_forecast):
+        for job in (
+            ingestion().ingest_observations,
+            ingestion().ingest_forecast,
+        ):
             try:
                 log.info("%s -> %s", job.__name__, await asyncio.to_thread(job))
-            except (DMIRequestError, DMIParseError, ForwardError):
+            except (
+                DMIRequestError,
+                DMIParseError,
+                DecisionSinkError,
+                ObservationSinkError,
+            ):
                 log.exception("%s failed, retrying next round", job.__name__)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
@@ -46,44 +63,43 @@ class IngestionResponse(BaseModel):
     skipped_duplicates: int = 0
 
 
-class ReplayRequest(BaseModel):
-    events: list[dict[str, Any]]
-
-
 @app.exception_handler(DMIRequestError)
 @app.exception_handler(DMIParseError)
 async def dmi_error(_: Request, error: Exception) -> JSONResponse:
     return JSONResponse(status_code=502, content={"error": "dmi", "detail": str(error)})
 
 
-@app.exception_handler(ForwardError)
-async def forward_error(_: Request, error: ForwardError) -> JSONResponse:
+@app.exception_handler(DecisionSinkError)
+async def decision_sink_error(_: Request, error: DecisionSinkError) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"error": "sink", "detail": str(error)})
+
+
+@app.exception_handler(ObservationSinkError)
+async def observation_sink_error(
+    _: Request, error: ObservationSinkError
+) -> JSONResponse:
     return JSONResponse(status_code=502, content={"error": "sink", "detail": str(error)})
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "sink": ingestion().forwarder.sink_url}
+    service = ingestion()
+    return {
+        "status": "ok",
+        "decision_sink": service.decision_forwarder.decision_sink_url,
+        "observation_sink": service.observation_forwarder.observation_sink_url,
+    }
 
 
 @app.post("/ingest/observations")
 def ingest_observations() -> IngestionResponse:
     result = ingestion().ingest_observations()
-    return IngestionResponse(sent=result.sent, skipped_duplicates=result.skipped_duplicates)
+    return IngestionResponse(
+        sent=result.sent,
+        skipped_duplicates=result.skipped_duplicates,
+    )
 
 
 @app.post("/ingest/forecast")
 def ingest_forecast() -> IngestionResponse:
     return IngestionResponse(sent=ingestion().ingest_forecast().sent)
-
-
-@app.get("/events")
-def recent_events(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
-    return ingestion().forwarder.recent(limit)
-
-
-@app.post("/replay")
-def replay(body: ReplayRequest) -> IngestionResponse:
-    for event in body.events:
-        ingestion().forwarder.send(event)
-    return IngestionResponse(sent=len(body.events))

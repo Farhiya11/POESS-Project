@@ -1,6 +1,8 @@
 *.env
 
 # python stuff
+.venv/
+uv.lock
 venv/
 __pycache__/
 

@@ -1,6 +1,18 @@
-FROM siddhiio/siddhi-runner-alpine:latest
+FROM siddhiio/siddhi-runner-alpine:5.1.0 AS script-extension-downloader
+USER root
+RUN wget -q \
+    "https://repo.maven.apache.org/maven2/io/siddhi/extension/script/js/siddhi-script-js/5.0.4/siddhi-script-js-5.0.4.jar" \
+    -O /tmp/siddhi-script-js-5.0.4.jar
+
+FROM siddhiio/siddhi-runner-alpine:5.1.0
 
 WORKDIR /apps
-COPY OrderFoodAppDEMO.siddhi /apps/OrderFoodAppDEMO.siddhi
+COPY apps/DCRApp.siddhi /apps/DCRApp.siddhi
+COPY apps/PreparednessDecisionApp.siddhi /apps/PreparednessDecisionApp.siddhi
 
-ENTRYPOINT ["sh", "-c", "/home/siddhi_user/siddhi-runner/wso2/runner/bin/carbon.sh -Dapps=/apps/OrderFoodAppDEMO.siddhi"]
+ARG SIDDHI_RUNNER_LIB=/home/siddhi/wso2-siddhi-runner-5.1.0/lib
+COPY --from=script-extension-downloader \
+    /tmp/siddhi-script-js-5.0.4.jar \
+    ${SIDDHI_RUNNER_LIB}/siddhi-script-js-5.0.4.jar
+
+CMD ["-Dapps=/apps"]

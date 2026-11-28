@@ -43,6 +43,27 @@ def normalize_event_payload(data):
         except (TypeError, ValueError):
             payload_data = {"raw": payload_data}
 
+    standard_fields = {
+        "case_id",
+        "order_id",
+        "event",
+        "activity",
+        "name",
+        "timestamp",
+        "role",
+        "user",
+        "actor",
+        "error",
+        "payload",
+    }
+    source_fields = {
+        key: value
+        for key, value in payload.items()
+        if key not in standard_fields and value is not None
+    }
+    if isinstance(payload_data, dict):
+        payload_data = {**source_fields, **payload_data}
+
     return {
         "case_id": str(case_id),
         "order_id": str(order_id) if order_id is not None else "",

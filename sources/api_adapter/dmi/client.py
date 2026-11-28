@@ -23,7 +23,7 @@ class DMIRequestError(RuntimeError):
 
 
 class DMIClient:
-    """Small SDK over the two DMI open data endpoints we use."""
+    """Small client for the DMI observation and forecast endpoints."""
 
     def __init__(
         self,
@@ -43,16 +43,24 @@ class DMIClient:
         except requests.RequestException as exc:
             raise DMIRequestError(f"DMI request to {path} failed: {exc}") from exc
 
-    def observations(self, station_id: str, hours_back: int = OBSERVATION_HOURS_BACK) -> list[WaterLevelObservation]:
+    def observations(
+        self, station_id: str, hours_back: int = OBSERVATION_HOURS_BACK
+    ) -> list[WaterLevelObservation]:
         end = datetime.now(timezone.utc)
         start = end - timedelta(hours=hours_back)
-        payload = self._get(DMI_OBSERVATIONS_PATH, {
-            "stationId": station_id,
-            "parameterId": OBSERVATION_PARAMETER,
-            "datetime": f"{start:%Y-%m-%dT%H:%M:%SZ}/{end:%Y-%m-%dT%H:%M:%SZ}",
-            "sortorder": "observed,DESC",
-            "limit": 500,
-        })
+        payload = self._get(
+            DMI_OBSERVATIONS_PATH,
+            {
+                "stationId": station_id,
+                "parameterId": OBSERVATION_PARAMETER,
+                "datetime": (
+                    f"{start:%Y-%m-%dT%H:%M:%SZ}/"
+                    f"{end:%Y-%m-%dT%H:%M:%SZ}"
+                ),
+                "sortorder": "observed,DESC",
+                "limit": 500,
+            },
+        )
         return self.parser.observations(payload)
 
     def forecast(

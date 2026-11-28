@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from constants import FORECAST_COLLECTION, FORECAST_PARAMETER, OBSERVATION_PARAMETER
+from constants import (
+    FORECAST_COLLECTION,
+    FORECAST_PARAMETER,
+    OBSERVATION_PARAMETER,
+)
 from models import SeaLevelForecast, WaterLevelObservation
 
 
@@ -10,28 +14,32 @@ class DMIParseError(ValueError):
 
 
 class DMIParser:
-    """Turns raw DMI responses into our event dataclasses."""
+    """Turns raw DMI responses into normalized water-level data."""
 
     @staticmethod
     def parse_time(value: str) -> datetime:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
     def observations(self, payload: dict[str, Any]) -> list[WaterLevelObservation]:
-        """oceanObs GeoJSON -> observations, oldest first. Readings without a value are dropped."""
+        """oceanObs GeoJSON -> observations, oldest first; drop missing values."""
         if "features" not in payload:
             raise DMIParseError("oceanObs response has no 'features'")
-        events: list[WaterLevelObservation] = []
+        observations: list[WaterLevelObservation] = []
         for feature in payload["features"]:
             props = feature.get("properties", {})
             if props.get("value") is None:
                 continue
-            events.append(WaterLevelObservation(
-                station_id=str(props["stationId"]),
-                observed_at=self.parse_time(props["observed"]).isoformat(),
-                sea_level_cm=float(props["value"]),
-                parameter_id=props.get("parameterId", OBSERVATION_PARAMETER),
-            ))
-        return sorted(events, key=lambda e: e.observed_at)
+            observations.append(
+                WaterLevelObservation(
+                    station_id=str(props["stationId"]),
+                    observed_at=self.parse_time(props["observed"]).isoformat(),
+                    sea_level_cm=float(props["value"]),
+                    parameter_id=props.get(
+                        "parameterId", OBSERVATION_PARAMETER
+                    ),
+                )
+            )
+        return sorted(observations, key=lambda observation: observation.observed_at)
 
     def forecast(
         self,

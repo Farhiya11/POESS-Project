@@ -41,6 +41,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title="DCR Microservice", lifespan=lifespan)
 
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    _ = engine()
+    return {"status": "ok"}
+
+
 # ======================================================================
 # EXCEPTION HANDLERS
 # ======================================================================
