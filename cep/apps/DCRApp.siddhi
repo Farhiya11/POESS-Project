@@ -46,6 +46,7 @@ define stream DcrEventOut(order_id string, event_id string);
     @map(type='json')
 )
 define stream Logging(
+    process_engine string,
     event string,
     case_id string,
     order_id string,
@@ -78,17 +79,20 @@ select order_id, "unsupported action" as error
 insert into RoutingError;
 
 from MiddlemanStream
-select event, case_id, order_id, timestamp, role, payload,
+select "DCR" as process_engine,
+       event, case_id, order_id, timestamp, role, payload,
        ifThenElse(error is null, "", error) as error
 insert into Logging;
 
 from MiddlemanStream[status == "finished"]
-select "DCR Case Finished" as event, case_id, order_id, timestamp, role, payload,
+select "DCR" as process_engine,
+       "DCR Case Finished" as event, case_id, order_id, timestamp, role, payload,
        ifThenElse(error is null, "", error) as error
 insert into Logging;
 
 from RoutingError
-select "Error" as event,
+select "DCR" as process_engine,
+       "Error" as event,
        "UNKNOWN_CASE" as case_id,
        order_id,
        convert(currentTimeMillis(), "string") as timestamp,

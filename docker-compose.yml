@@ -105,9 +105,11 @@ services:
     container_name: event-logs-service
     ports:
       - "5010:5010"
+    environment:
+      EVENT_LOG_ROOT: /data
+      EVENT_LOG_TIMEZONE: "${EVENT_LOG_TIMEZONE:-Europe/Copenhagen}"
     volumes:
-      - ./event_logs_service/service/logs:/logs
-      - ./event_logs_service/service/XES:/XES
+      - ./event_logs_service/service/logs:/data
 
   zeebe:
     image: camunda/zeebe:8.8.46

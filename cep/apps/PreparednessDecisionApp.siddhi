@@ -258,6 +258,7 @@ define stream WaterLevelObservationInput(
 )
 define stream WaterLevelObservationLog(
     event string,
+    process_engine string,
     case_id string,
     timestamp string,
     role string,
@@ -294,9 +295,10 @@ define stream PreparednessDecisionOutput(
 @source(
     type='http',
     receiver.url="http://0.0.0.0:7072/middleman",
-    @map(type='json')
+    @map(type='json', fail.on.missing.attribute='false')
 )
 define stream CommunicationEventInput(
+    process_engine string,
     order_id string,
     case_id string,
     event string,
@@ -313,6 +315,7 @@ define stream CommunicationEventInput(
     @map(type='json')
 )
 define stream CommunicationEventLog(
+    process_engine string,
     event string,
     case_id string,
     order_id string,
@@ -340,6 +343,7 @@ insert into PreparednessDecisionOutput;
 
 from WaterLevelObservationInput
 select "WaterLevelObserved" as event,
+       "DCR" as process_engine,
        "DMI-water-level-monitoring" as case_id,
        observed_at as timestamp,
        "DMI" as role,
@@ -352,7 +356,8 @@ select "WaterLevelObserved" as event,
 insert into WaterLevelObservationLog;
 
 from CommunicationEventInput
-select event,
+select ifThenElse(process_engine is null, "BPMN", process_engine) as process_engine,
+       event,
        case_id,
        order_id,
        timestamp,

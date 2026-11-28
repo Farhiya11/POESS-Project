@@ -5,18 +5,42 @@ import json
 import os
 from threading import Lock
 import xml.etree.ElementTree as ET
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 app = Flask(__name__)
 
-LOG_DIR = Path(os.getenv("EVENT_LOG_DIR", "/logs"))
-XES_DIR = Path(os.getenv("EVENT_XES_DIR", "/XES"))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-XES_DIR.mkdir(parents=True, exist_ok=True)
+LOG_ROOT = Path(os.getenv("EVENT_LOG_ROOT", "/data"))
+EVENT_ENGINES = ("bpmn", "dcr")
+EVENT_LOG_TIMEZONE_NAME = os.getenv("EVENT_LOG_TIMEZONE", "Europe/Copenhagen")
+try:
+    EVENT_LOG_TIMEZONE = ZoneInfo(EVENT_LOG_TIMEZONE_NAME)
+except ZoneInfoNotFoundError as error:
+    raise RuntimeError(
+        f"Unknown EVENT_LOG_TIMEZONE: {EVENT_LOG_TIMEZONE_NAME}"
+    ) from error
 
-RUN_ID = datetime.now(timezone.utc).strftime("%y%m%d_%H%M%S")
-EVENT_STORE = LOG_DIR / f"{RUN_ID}_events.json"
-XES_FILE = XES_DIR / f"{RUN_ID}_process_log.xes"
-EVENT_STORE_LOCK = Lock()
+
+def make_run_id(timestamp: datetime | None = None) -> str:
+    """Format a timestamp in the configured timezone, including its UTC offset."""
+    timestamp = timestamp or datetime.now(timezone.utc)
+    return timestamp.astimezone(EVENT_LOG_TIMEZONE).strftime("%y%m%d_%H%M%S%z")
+
+
+RUN_ID = make_run_id()
+EVENT_STORE_LOCKS = {engine: Lock() for engine in EVENT_ENGINES}
+
+
+def event_store_path(engine: str) -> Path:
+    return LOG_ROOT / engine / "json" / f"{RUN_ID}_events.json"
+
+
+def xes_file_path(engine: str) -> Path:
+    return LOG_ROOT / engine / "xes" / f"{RUN_ID}_process_log.xes"
+
+
+for engine in EVENT_ENGINES:
+    (LOG_ROOT / engine / "json").mkdir(parents=True, exist_ok=True)
+    (LOG_ROOT / engine / "xes").mkdir(parents=True, exist_ok=True)
 
 
 def utc_now_iso() -> str:
@@ -37,6 +61,9 @@ def normalize_event_payload(data):
     case_id = payload.get("case_id") or payload.get("case") or payload.get("trace_id") or "UNKNOWN_CASE"
     order_id = payload.get("order_id")
     role = payload.get("role") or payload.get("user") or payload.get("actor") or "system"
+    engine = str(payload.get("process_engine") or "BPMN").strip().lower()
+    if engine not in EVENT_ENGINES:
+        raise ValueError("process_engine must be BPMN or DCR")
     error = payload.get("error")
     payload_data = payload.get("payload") or {}
 
@@ -58,6 +85,7 @@ def normalize_event_payload(data):
         "actor",
         "error",
         "payload",
+        "process_engine",
     }
     source_fields = {
         key: value
@@ -73,13 +101,14 @@ def normalize_event_payload(data):
         "event": str(event_name),
         "timestamp": str(timestamp),
         "role": str(role),
+        "process_engine": engine,
         "error": str(error) if error is not None else "",
         "payload": payload_data,
     }
 
 
-def write_json_store(events):
-    with open(EVENT_STORE, "w", encoding="utf-8") as f:
+def write_json_store(events, event_store):
+    with open(event_store, "w", encoding="utf-8") as f:
         json.dump(events, f, indent=2)
 
 
@@ -91,7 +120,7 @@ def xes_attribute_value(value):
     return str(value)
 
 
-def build_xes(events):
+def build_xes(events, xes_file):
     root = ET.Element(
         "log",
         {
@@ -151,6 +180,14 @@ def build_xes(events):
         for event in case_events:
             event_el = ET.SubElement(trace, "event")
             ET.SubElement(event_el, "string", {"key": "concept:name", "value": str(event.get("event", "unknown"))})
+            ET.SubElement(
+                event_el,
+                "string",
+                {
+                    "key": "process_engine",
+                    "value": str(event.get("process_engine", "bpmn")).upper(),
+                },
+            )
             ET.SubElement(event_el, "date", {"key": "time:timestamp", "value": str(event.get("timestamp", utc_now_iso()))})
             ET.SubElement(event_el, "string", {"key": "org:resource", "value": str(event.get("role", "system"))})
 
@@ -185,7 +222,7 @@ def build_xes(events):
 
     ET.indent(root)
     tree = ET.ElementTree(root)
-    tree.write(XES_FILE, encoding="utf-8", xml_declaration=True)
+    tree.write(xes_file, encoding="utf-8", xml_declaration=True)
 
 
 @app.route("/log", methods=["POST"])
@@ -194,12 +231,19 @@ def log_event():
     if not data:
         return jsonify({"status": "invalid", "message": "No JSON payload received"}), 400
 
-    event = normalize_event_payload(data)
+    try:
+        event = normalize_event_payload(data)
+    except ValueError as error:
+        return jsonify({"status": "invalid", "message": str(error)}), 400
 
-    with EVENT_STORE_LOCK:
+    engine = event["process_engine"]
+    event_store = event_store_path(engine)
+    xes_file = xes_file_path(engine)
+
+    with EVENT_STORE_LOCKS[engine]:
         try:
-            if EVENT_STORE.exists():
-                with open(EVENT_STORE, "r", encoding="utf-8") as f:
+            if event_store.exists():
+                with open(event_store, "r", encoding="utf-8") as f:
                     events = json.load(f)
             else:
                 events = []
@@ -207,11 +251,22 @@ def log_event():
             events = []
 
         events.append(event)
-        write_json_store(events)
-        build_xes(events)
+        write_json_store(events, event_store)
+        build_xes(events, xes_file)
 
-    print(f"[XES] Logged event={event['event']} case_id={event['case_id']} ts={event['timestamp']}", flush=True)
-    return jsonify({"status": "logged", "xes_file": str(XES_FILE)}), 200
+    print(
+        f"[XES] Logged engine={engine} event={event['event']} "
+        f"case_id={event['case_id']} ts={event['timestamp']}",
+        flush=True,
+    )
+    return jsonify(
+        {
+            "status": "logged",
+            "process_engine": engine.upper(),
+            "json_file": str(event_store),
+            "xes_file": str(xes_file),
+        }
+    ), 200
 
 
 if __name__ == "__main__":

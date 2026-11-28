@@ -4,9 +4,9 @@ WORKDIR /app
 
 COPY app.py /app/
 
-RUN pip install flask
+RUN pip install flask tzdata
 
-# Create log and XES directories
-RUN mkdir -p /logs /XES
+# Create the mounted event log root
+RUN mkdir -p /data
 
 CMD ["python", "app.py"]

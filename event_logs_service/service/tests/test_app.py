@@ -3,6 +3,7 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,9 +15,8 @@ SERVICE_APP = Path(__file__).resolve().parents[1] / "app.py"
 @pytest.fixture
 def log_client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     log_dir = tmp_path / "logs"
-    xes_dir = tmp_path / "xes"
-    monkeypatch.setenv("EVENT_LOG_DIR", str(log_dir))
-    monkeypatch.setenv("EVENT_XES_DIR", str(xes_dir))
+    monkeypatch.setenv("EVENT_LOG_ROOT", str(log_dir))
+    monkeypatch.setenv("EVENT_LOG_TIMEZONE", "Europe/Copenhagen")
     spec = importlib.util.spec_from_file_location("event_log_service_test_app", SERVICE_APP)
     assert spec is not None and spec.loader is not None
     service_app = importlib.util.module_from_spec(spec)
@@ -34,6 +34,7 @@ def test_log_endpoint_preserves_preparedness_snapshot_in_json_and_xes(log_client
     }
     body = {
         "event": "Internal preparedness",
+        "process_engine": "BPMN",
         "case_id": "episode-1",
         "order_id": "refresh-1",
         "timestamp": "2026-11-28T12:00:00+00:00",
@@ -50,16 +51,19 @@ def test_log_endpoint_preserves_preparedness_snapshot_in_json_and_xes(log_client
     response = client.post("/log", json=body)
 
     assert response.status_code == 200
-    stored = json.loads(service_app.EVENT_STORE.read_text(encoding="utf-8"))
+    stored = json.loads(
+        service_app.event_store_path("bpmn").read_text(encoding="utf-8")
+    )
     assert stored[0]["payload"]["decision"] == decision
     assert stored[0]["case_id"] == "episode-1"
 
-    root = ET.parse(service_app.XES_FILE).getroot()
+    root = ET.parse(service_app.xes_file_path("bpmn")).getroot()
     trace = root.find("trace")
     assert trace is not None
     assert trace.find("string[@key='concept:name']").attrib["value"] == "episode-1"
     event = trace.find("event")
     assert event is not None
+    assert event.find("string[@key='process_engine']").attrib["value"] == "BPMN"
     assert event.find("string[@key='concept:name']").attrib["value"] == (
         "Internal preparedness"
     )
@@ -77,6 +81,7 @@ def test_concurrent_posts_are_not_lost_from_json_or_xes(log_client):
                 "/log",
                 json={
                     "event": "Internal preparedness",
+                    "process_engine": "BPMN",
                     "case_id": "episode-concurrent",
                     "timestamp": f"2026-11-28T12:00:{index:02d}+00:00",
                     "role": "camunda",
@@ -89,8 +94,55 @@ def test_concurrent_posts_are_not_lost_from_json_or_xes(log_client):
     with ThreadPoolExecutor(max_workers=8) as executor:
         statuses = list(executor.map(post_event, range(event_count)))
 
-    stored = json.loads(service_app.EVENT_STORE.read_text(encoding="utf-8"))
-    root = ET.parse(service_app.XES_FILE).getroot()
+    stored = json.loads(
+        service_app.event_store_path("bpmn").read_text(encoding="utf-8")
+    )
+    root = ET.parse(service_app.xes_file_path("bpmn")).getroot()
     assert statuses == [200] * event_count
     assert len(stored) == event_count
     assert len(root.findall("trace/event")) == event_count
+
+
+def test_bpmn_and_dcr_events_are_written_to_separate_folders(log_client):
+    client, service_app = log_client
+
+    for engine, activity in (("BPMN", "Internal preparedness"), ("DCR", "Payment")):
+        response = client.post(
+            "/log",
+            json={
+                "process_engine": engine,
+                "event": activity,
+                "case_id": f"case-{engine.lower()}",
+                "timestamp": "2026-11-28T12:00:00+00:00",
+                "role": "test",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json["process_engine"] == engine
+
+    bpmn_events = json.loads(
+        service_app.event_store_path("bpmn").read_text(encoding="utf-8")
+    )
+    dcr_events = json.loads(
+        service_app.event_store_path("dcr").read_text(encoding="utf-8")
+    )
+    assert [event["event"] for event in bpmn_events] == ["Internal preparedness"]
+    assert [event["event"] for event in dcr_events] == ["Payment"]
+    assert service_app.event_store_path("bpmn").parent.name == "json"
+    assert service_app.event_store_path("bpmn").parent.parent.name == "bpmn"
+    assert service_app.xes_file_path("bpmn").parent.name == "xes"
+    assert service_app.event_store_path("dcr").parent.parent.name == "dcr"
+    dcr_root = ET.parse(service_app.xes_file_path("dcr")).getroot()
+    dcr_event = dcr_root.find("trace/event")
+    assert dcr_event is not None
+    assert dcr_event.find("string[@key='process_engine']").attrib["value"] == "DCR"
+
+
+def test_run_id_uses_local_timezone_and_utc_offset(log_client):
+    _, service_app = log_client
+
+    winter = datetime(2026, 11, 28, 18, 38, tzinfo=timezone.utc)
+    summer = datetime(2026, 6, 1, 17, 38, tzinfo=timezone.utc)
+
+    assert service_app.make_run_id(winter) == "261128_193800+0100"
+    assert service_app.make_run_id(summer) == "260601_193800+0200"

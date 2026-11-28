@@ -73,6 +73,7 @@ def test_siddhi_disabled_policy_does_not_change_episode_state(client) -> None:
     logged = client.application.config["TEST_PREPAREDNESS_EVENTS"]
     assert logged[0]["event"] == "PreparednessRefreshDisabled"
     assert logged[0]["case_id"] == "preparedness-refresh-refresh-1"
+    assert logged[0]["process_engine"] == "BPMN"
     assert logged[0]["payload"]["decision"]["forecasts_json"] == "[]"
     assert logged[0]["url"] == communication_app.SIDDHI_CALLBACK_URL
     assert not communication_app.preparedness_episode_store.has_processed_refresh(
@@ -370,8 +371,13 @@ def test_preparedness_task_failure_is_logged_then_reraised(
 def test_siddhi_routes_communication_callbacks_and_keeps_input_snapshots() -> None:
     siddhi_app = INTEGRATION_DIR.parent / "cep/apps/PreparednessDecisionApp.siddhi"
     source = siddhi_app.read_text(encoding="utf-8")
+    dcr_app = INTEGRATION_DIR.parent / "cep/apps/DCRApp.siddhi"
+    dcr_source = dcr_app.read_text(encoding="utf-8")
 
     assert 'receiver.url="http://0.0.0.0:7072/middleman"' in source
     assert "publisher.url='http://event_logs_service:5010/log'" in source
+    assert '"DCR" as process_engine' in source
+    assert '"DCR" as process_engine' in dcr_source
+    assert '"BPMN"' in source
     assert "forecasts_json: forecastsJson" in source
     assert "policy_json: policyJson" in source

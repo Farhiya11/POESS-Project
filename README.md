@@ -222,6 +222,24 @@ timestamp, role, and task outcome recorded as event data. Active warning events
 share the alert episode case ID; refreshes without an active warning use their
 refresh ID. DCR callbacks continue to use the DCR simulation case ID.
 
+New files are separated by process engine under
+`event_logs_service/service/logs/`:
+
+```text
+bpmn/json/  bpmn/xes/
+dcr/json/   dcr/xes/
+```
+
+Preparedness and Camunda callback events go under `bpmn`; DCR callbacks and the
+DCR water-level monitoring events go under `dcr`. Existing files in the old
+top-level `logs/` and `XES/` folders are left in place.
+
+Each file name starts with the log service start time in `EVENT_LOG_TIMEZONE`,
+including its UTC offset (for example, `261128_193800+0100`). Compose defaults
+to `Europe/Copenhagen`; set `EVENT_LOG_TIMEZONE` in the root `.env` to another
+IANA timezone when running from a PC in a different timezone. Event timestamps
+inside JSON and XES remain UTC and include `+00:00`.
+
 The XES logs can be imported into ProcessDoctor for conformance checking once a
 matching DCR compliance model has been selected. This repository does not yet
 document a compliance model for each implemented process or automate the
